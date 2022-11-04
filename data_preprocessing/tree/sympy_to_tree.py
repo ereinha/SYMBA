@@ -108,6 +108,8 @@ operators_nargs = {
 
 def sympy_to_tree(expr):
     """convert sympy expression to nltk.Tree"""
+    if isinstance(expr, type("asdf")):
+        return expr
     if len(expr.args) > 0:
         op = expr.func
         op = operators[op]
@@ -117,23 +119,31 @@ def sympy_to_tree(expr):
 
 
 def tree_to_sympy(tree, expression=None):
-    """convert tree back to sympy expression"""
+    """convert nltk.Tree back to sympy expression"""
     if not isinstance(tree, type(Tree("asdf", [""]))):
         return tree
     else:
         node = tree._label
         op = operators_inv[node]
-        num_args = operators_nargs[node]
-        assert num_args == len(tree)
+        # num_args = operators_nargs[node]
+        # if num_args != len(tree):
+        #     print("num args not len(tree):")
+        #     ic(num_args)
+        #     ic(len(tree))
+        #     ic(tree)
+        # assert num_args == len(tree)
         return op(*[tree_to_sympy(t) for t in tree])
     return 0
 
 
 if __name__ == "__main__":
-    # sympy_to_tree(sp.sympify("a+b*c")).pretty_print(unicodelines=True)
-    # sympy_to_tree(sp.sympify("a+b+c*(d + exp(e))")).pretty_print(unicodelines=True)
-    sympy_to_tree(sp.sympify("exp(a+b*sin(c))")).pretty_print(unicodelines=True)
-
+    print("-------- sympy_to_tree")
+    expr = ic(sp.sympify("a+b*c"))
+    sympy_to_tree(expr).pretty_print(unicodelines=True)
+    expr = ic(sp.sympify("a+b+c*(d + exp(e))"))
+    sympy_to_tree(expr).pretty_print(unicodelines=True)
+    expr = ic(sp.sympify("exp(a+b*sin(c))"))
+    sympy_to_tree(expr).pretty_print(unicodelines=True)
 
     print("-------- tree_to_sympy")
     expr = sp.sympify("exp(a+b*sin(c))")

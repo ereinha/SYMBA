@@ -159,4 +159,17 @@ if __name__ == "__main__":
     ic(np.array(sqamplitudes_prefix[0]))
     print("Backconvertion of", max_lines, "amplitdudes working?", sqamplitudes == sqamplitudes_retrieved)
     assert sqamplitudes == sqamplitudes_retrieved
+
+    print("----------------------------\n\n")
+    print("tree notation\n")
+
     sp2tree.sympy_to_tree(sqamplitudes[0]).pretty_print()
+    sp2tree.sympy_to_tree(sqamplitudes[1]).pretty_print()
+    sp2tree.sympy_to_tree(sqamplitudes[2]).pretty_print()
+
+    print("converting amplitudes to trees")
+    sqamplitudes_tree = [sp2tree.sympy_to_tree(a) for a in tqdm(sqamplitudes)]
+    print("converting trees back to expressions")
+    sqamplitudes_retrieved = [sp2tree.tree_to_sympy(a) for a in tqdm(sqamplitudes_tree)]
+    print("Backconvertion of", max_lines, "amplitdudes working?", sqamplitudes == sqamplitudes_retrieved)
+    assert sqamplitudes == sqamplitudes_retrieved
