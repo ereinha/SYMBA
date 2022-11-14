@@ -12,28 +12,28 @@ from parallelbar import progress_imap, progress_map, progress_imapu
 from shlex import split
 import copy
 
-INCLUDE_OFF_SHELL = True
+INCLUDE_OFF_SHELL = False
 
 particles_list = [
         "electron",
         "anti_electron",
-        "muon",
-        "anti_muon",
-        "tau",
-        "anti_tau",
-        "up",
-        "anti_up",
-        "down",
-        "anti_down",
-        "strange",
-        "anti_strange",
-        "charm",
-        "anti_charm",
-        "top",
-        "anti_top",
-        "bottom",
-        "anti_bottom",
-
+        # "muon",
+        # "anti_muon",
+        # "tau",
+        # "anti_tau",
+        # "up",
+        # "anti_up",
+        # "down",
+        # "anti_down",
+        # "strange",
+        # "anti_strange",
+        # "charm",
+        # "anti_charm",
+        # "top",
+        # "anti_top",
+        # "bottom",
+        # "anti_bottom",
+        #
         "photon"
 ]
 
@@ -263,23 +263,23 @@ def delete_file(file):
 
 if __name__== "__main__":
     cpu_cores = 19
-    ampl_folder = "out/ampl/"
-    ampl_raw_folder = "out/ampl_raw/"
-    sqampl_folder = "out/sq_ampl/"
-    sqampl_raw_folder = "out/sq_ampl_raw/"
-    insertions_folder = "out/insertions/"
-    diagrams_folder = "out/diagrams/"
-    log_folder = "out/log/"
-    progress_file = "out/progress.txt"
+    ampl_folder = "out_unique/ampl/"
+    ampl_raw_folder = "out_unique/ampl_raw/"
+    sqampl_folder = "out_unique/sq_ampl/"
+    sqampl_raw_folder = "out_unique/sq_ampl_raw/"
+    insertions_folder = "out_unique/insertions/"
+    diagrams_folder = "out_unique/diagrams/"
+    log_folder = "out_unique/log/"
+    progress_file = "out_unique/progress.txt"
     folders = [ampl_folder, ampl_raw_folder, sqampl_folder, sqampl_raw_folder, insertions_folder, diagrams_folder, log_folder]
 
     _ = Path(log_folder).mkdir(parents=True, exist_ok=True)
-    logging.basicConfig(filename = 'out/log/general_log.log',
+    logging.basicConfig(filename = 'out_unique/log/general_log.log',
                     level = logging.DEBUG,
                     format = '%(asctime)s:%(levelname)s:%(name)s:%(message)s')
 
 
-    run_all_n_to_m_parallel(particles_list, 1, 1, folders, cpu_cores=cpu_cores)
+    # run_all_n_to_m_parallel(particles_list, 1, 1, folders, cpu_cores=cpu_cores)
     # run_all_n_to_m_parallel(particles_list, 1, 2, folders, cpu_cores=cpu_cores)
     # run_all_n_to_m_parallel(particles_list, 2, 1, folders, cpu_cores=cpu_cores)
     # run_all_n_to_m_parallel(particles_list, 2, 2, folders, cpu_cores=cpu_cores)
@@ -287,4 +287,4 @@ if __name__== "__main__":
     # run_all_n_to_m_parallel(particles_list, 1, 3, folders, cpu_cores=cpu_cores)
     # run_all_n_to_m_parallel(particles_list, 3, 2, folders, cpu_cores=cpu_cores)
     # run_all_n_to_m_parallel(particles_list, 2, 3, folders, cpu_cores=cpu_cores)
-    # run_all_n_to_m_parallel(particles_list, 3, 3, folders, cpu_cores=cpu_cores)
+    run_all_n_to_m_parallel(particles_list, 3, 3, folders, cpu_cores=cpu_cores)
