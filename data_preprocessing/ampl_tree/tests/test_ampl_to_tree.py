@@ -208,3 +208,40 @@ def test_contract_tree():
     assert tree_4 == tree_4_roundtrip
     
 
+def round_trip(ampl):
+    """
+    Check if the given amplitude (as array) is correctly round-trip encoded.
+    Here round trip means expand and contract.
+    The amplitude is first converted to a tree using `ampl_to_tree`.
+    Since I'm too lazy to check if the amplitude is already in hybrid or in normal form,
+    I expand, contract and expand again.
+
+    """
+    tree = ampl_to_tree(ampl)
+    tree_expanded = expand_tree(tree)
+    tree_contracted = contract_tree(tree_expanded)
+    tree_round_trip = expand_tree(tree)
+    assert tree_expanded == tree_round_trip
+
+
+def test_real_amplitudes_round_trips():
+    ampls_file = "data.nosync/QED_amplitudes_TreeLevel_2to2.txt"
+    with open(ampls_file) as f:
+        ampls = f.readlines()
+        ampls = [a[:-1] for a in ampls]  # remove new line character in each element
+
+    # for i in range(len(ampls)):
+    for i in [0, 20, 100, -1, -20, -100]:
+        ampl = ampls[i].split(",")
+        round_trip(ampl)
+
+
+    ampls_file = "data.nosync/QED_amplitudes_TreeLevel_3to2.txt"
+    with open(ampls_file) as f:
+        ampls = f.readlines(1000000)  # how many bites, this is 1079 lines
+        ampls = [a[:-1] for a in ampls]  # remove new line character in each element
+
+    # for i in range(len(ampls)):
+    for i in [0, 20, 100, -1, -20, -100]:
+        ampl = ampls[i].split(",")
+        round_trip(ampl)
