@@ -17,6 +17,10 @@ sqampls_file = "data.nosync/QED_amplitudes_TreeLevel_2to2.txt"
 operators = {
         "ee": 3,
         "ee^(*)": 3,
+        "b": 3,
+        "b^(*)": 3,
+        "A": 3,
+        "A^(*)": 3,
         "Prod": 2,
         "Prod(": -1,  # )
         "Pow": 2,
@@ -27,7 +31,12 @@ operators = {
 
 
 def ampl_to_tree(arr):
-    """convert hybrid prefix amplitude to nltk.Tree"""
+    """convert hybrid prefix amplitude to nltk.Tree
+    Hybrid prefix is either normal prefix or prefix where there are products/sums with
+    arbitrary number of arguments. They work like this:
+        ["Prod(", "a1", "a2", "a3", ")"]
+
+    """
 
     if len(arr) == 1:
         return arr[0]
@@ -84,8 +93,26 @@ def func_to_tree(arr):
     return Tree(func, args)
 
 
+def tree_to_prefix(tree):
+    """converts a tree to an array in prefix notation """
+    arr = []
+    arr.append(tree.label())
+    for i in range(len(tree)):
+        if isinstance(tree[i], Tree):
+            arr = arr + tree_to_prefix(tree[i])
+        else:
+            arr.append(tree[i])
+
+    if tree.label()[-1] == "(":  # )
+        arr.append(")")
+    return arr
+
+
 if __name__ == "__main__":
     with open(sqampls_file) as f:
         ampls = f.readlines()
 
     print(ampls[0])
+    print(ampls[100])
+    print(ampls[-1])
+    print(ampls[-20])
