@@ -1,9 +1,10 @@
 from nltk.tree import Tree
 import sympy as sp
 from icecream import ic
-import copy
+# import copy
 
-sqampls_file = "data.nosync/QED_amplitudes_TreeLevel_2to2.txt"
+sqampls_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to2.txt"
+ampls_raw_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to2_raw.txt"
 
 
 # the amplitudes are already in hybrid prefix notation. Now writing a script to convert them to a tree is kind
@@ -29,6 +30,25 @@ operators = {
         "Sum": 2,
         "Sum(": -1,  # )
 }
+
+
+# basis functions and number of indices
+basis_functions = {
+        "e": 2,
+        "mu": 2,
+        "t": 2,
+        "u": 2,
+        "d": 2,
+        "s": 2,
+        "c": 2,
+        "tt": 2,
+        "b": 2,
+        "A": 2,
+        }
+
+
+def raw_ampl_to_tree(raw_ampl):
+    return 0
 
 
 def ampl_to_tree(arr, remove_hybrid_parentheses=False):
@@ -168,11 +188,234 @@ def contract_tree(tree, runs=0, add_opening_bracked=True):
     return contract_tree(tree, runs=runs+1)
 
 
-if __name__ == "__main__":
-    with open(sqampls_file) as f:
-        ampls = f.readlines()
+def get_tree(expression):
+    last_open_bracket_idx = get_last_open_bracket(expression)
+    while last_open_bracket_idx != -1:
+        next_closing_bracket_idx = get_next_closing_bracket(expression, last_open_bracket_idx)
+        sub_expr = expression[last_open_bracket_idx+1:next_closing_bracket_idx]
+        sub_expr = [expression[last_open_bracket_idx-1]] + sub_expr  # add operator before ()
+        expression[last_open_bracket_idx-1] = sub_expr
+        del expression[last_open_bracket_idx:next_closing_bracket_idx+1]
+        last_open_bracket_idx = get_last_open_bracket(expression)
 
-    print(ampls[0])
-    print(ampls[100])
-    print(ampls[-1])
-    print(ampls[-20])
+    return expression[0]
+
+
+def get_last_open_bracket(expression):
+    for i in range(len(expression)):
+        if expression[-i] == '(':
+            return len(expression) - i
+        else:
+            pass
+    return -1
+
+
+def get_next_closing_bracket(expression, last_open_bracket_idx):
+    for i in range(last_open_bracket_idx+1, len(expression)):
+        if expression[i] == ")":
+            return i
+    return -1
+
+def ampl_raw_tree_to_nltk(lst):
+    """convert raw amplitude tree (nested list) to nltk tree
+    Example:
+        In: ['Prod',
+           '-1/2',
+           'i',
+           ['Pow', 'e', '2'],
+           ['Pow',
+            ['Sum',
+             ['Pow', 'm_e', '2'],
+             ['Prod', '-1', 's_13'],
+             ['Prod', '1/2', 'reg_prop']],
+            '-1'],
+           'gamma_{+%\\sigma_126,%eps_36,%del_171}',
+           'gamma_{%\\sigma_126,%eta_132,%del_172}',
+           'e_{i_3,%del_171}(p_1)_u',
+           'e_{k_3,%del_172}(p_2)_u',
+           'e_{l_3,%eps_36}(p_3)_u^(*)',
+           'e_{i_5,%eta_132}(p_4)_u^(*)']
+
+        Out: 
+            Tree('Prod', ['-1/2', 'i', Tree('Pow', ['e', '2']), Tree('Pow', [Tree('Sum', [Tree('Pow', ['m_e', '2']), Tree('Prod', ['-1', 's_13']), Tree('Prod', ['1/2', 'reg_prop'])]), '-1']), 'gamma_{+%\\sigma_126,%eps_36,%del_171}', 'gamma_{%\\sigma_126,%eta_132,%del_172}', 'e_{i_3,%del_171}(p_1)_u', 'e_{k_3,%del_172}(p_2)_u', 'e_{l_3,%eps_36}(p_3)_u^(*)', 'e_{i_5,%eta_132}(p_4)_u^(*)'])
+    """
+    op = lst[0]
+    args = lst[1:]
+    args = [ampl_raw_tree_to_nltk(a) if isinstance(a, list) else a for a in args]
+    tree = Tree(op, args)
+    return tree
+
+
+def nltk_tree_expand_subscripts(tree):
+    """
+    go through each leaf in tree, check if has subscript, if yes, expand in subtree with subscripts as leaves
+    """
+    if not isinstance(tree, Tree):
+        if has_subscript(tree):
+            return subscripts_to_subtree(tree)
+        return tree
+    label = tree.label()
+    leaves = tree[0:]
+    leaves_expanded = [nltk_tree_expand_subscripts(l) for l in leaves]
+    return Tree(label, leaves_expanded)
+
+
+def has_subscript(str):
+    """
+    ic(has_subscript("asdf")) --> False
+    ic(has_subscript("asdf_{a, b, c}")) --> True
+    ic(has_subscript("p_mu")) --> True
+    """
+    ret = ("_" in str) and ("{" in str)  # }
+    ret = (ret or ("p_" in str))
+    return ret
+
+
+
+def subscripts_to_subtree(expr, save_input=False):
+    """
+    Turn expression like `gamma_{a, b, c}` to a tree
+    A `%` indicates that it's an index
+    """
+    expr_new = remove_unnecessary_in_indices(expr)
+    var, subscript = expr_new.split("_", maxsplit=1)
+    if is_basis_func(expr):
+        return basis_function_to_subtree(expr)
+
+    if var == "gamma":
+        subscripts = format_gamma(subscript)
+        return Tree(var, subscripts)
+
+    if var == "p":
+        ret = p_sub_to_tree(expr_new)
+        return ret
+    
+    if save_input:
+        indices = subscript[1:-1].split(",")
+        indices = ["%" + i for i in indices]
+        return Tree(var, indices)
+
+    # else:
+    #     new_str, subscripts = format_other_subscripts(var, subscript)
+    #     new_str = list(more_itertools.collapse(new_str))
+    #     return [new_str, subscripts]
+    #
+    return Tree(var, [subscript])
+
+
+def p_sub_to_tree(p_expr):
+    """
+    from something like p_4_sigma_241 make Tree(p_4, [%sigma_241])
+    """
+    p_expr = remove_unnecessary_in_indices(p_expr)
+    if len(p_expr.split("_")) == 3:
+        p, num, index = p_expr.split("_")
+        label = p + "_" + num
+        index = "%" + index
+        return Tree(label, [index])
+    elif len(p_expr.split("_")) == 4:
+        p, num, index, index_num = p_expr.split("_")
+        label = p + "_" + num
+        index = "%" + index + "_" + index_num
+        return Tree(label, [index])
+
+def is_basis_func(str):
+    """
+    check if given string is in the form of a basis function, i.e.
+        e_{a1, a2, a3}(p_1)_u
+    """
+
+    s = str.split("_", maxsplit=1)
+    if not s[0] in basis_functions.keys():
+        return False
+    if not s[1][0] == "{":  #}
+        return False
+    s[1] = s[1][1:]
+    s[1] = s[1].split("}")
+    if s[1][1] == '':
+        return False
+    indices = s[1][0].split(",")
+    basis_func = s[0]
+    num_indices = basis_functions[basis_func]
+    if len(indices) != num_indices:
+        return False
+    return True
+
+
+def basis_function_to_subtree(str):
+    """assumes a valid basis function in the form
+        'e_{l_3,%eps_36}(p_3)_u^(*)'
+    Returns a nltk.Tree with the indices and the momentum as leaves and 
+    e_u^* as node.
+    
+    - "^(*)": this goes to the end of the node label
+    - indices: will all become leaves
+    """
+    basis_f, rest = str.split("}", maxsplit=1)
+    basis_f = basis_f + "}"   # `e_{i, alpha}`
+    basis_f_tree = subscripts_to_subtree(basis_f, save_input=True)
+
+    # momentum (p_1)_u or (p_1)_u^(*)
+    momentum, particle = rest.split(")", maxsplit=1)
+    momentum = momentum + ")"
+
+    # ^(*)
+    if len(particle.split("^")) == 2:
+        particle_name, star = particle.split("^")
+        label = basis_f_tree.label()
+        basis_f_tree.set_label(label + particle_name)
+        label = basis_f_tree.label()
+        basis_f_tree.set_label(label + "^" + star)
+    elif len(particle.split("^")) == 1:
+        label = basis_f_tree.label()
+        basis_f_tree.set_label(label + particle)
+
+    basis_f_tree[0:] = basis_f_tree[0:] + [momentum]
+
+    return basis_f_tree
+
+
+def format_gamma(subscript):
+    """
+    input looks like: '{%\\sigma_49,%gam_44,%eta_12}'
+    gamma alsways has 3 indices
+    """
+    ind1, ind2, ind3 = subscript[1:-1].split(",")
+    ind1 = "%" + ind1
+    ind2 = "%" + ind2
+    ind3 = "%" + ind3
+
+    return [ind1, ind2, ind3]
+
+def remove_unnecessary_in_indices(expr):
+    expr_new = expr.replace("\\", "")
+    expr_new = expr_new.replace("%", "")
+    expr_new = expr_new.replace("+", "")
+    return expr_new
+
+if __name__ == "__main__":
+    # with open(sqampls_file) as f:
+    #     ampls = f.readlines()
+    #
+    # print(ampls[0])
+    # print(ampls[100])
+    # print(ampls[-1])
+    # print(ampls[-20])
+
+    with open(ampls_raw_file) as f:
+        ampls_raw = f.readlines(100000)
+        ampls_raw = [a[:-1] for a in ampls_raw]
+        
+    exp = ampls_raw[0]
+    exp = exp.split(";")
+    print(exp)
+
+    tree_raw = get_tree(exp)
+    ic(tree_raw)
+    tree = ampl_raw_tree_to_nltk(tree_raw)
+    tree.pretty_print(abbreviate=True, unicodelines=True)
+    # tree = fix_tree(tree)
+    # ic(tree)
+    # final_expr = fix_subscripts(tree)
+    # ic(final_expr)
+
