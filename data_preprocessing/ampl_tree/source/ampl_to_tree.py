@@ -1,6 +1,7 @@
 from nltk.tree import Tree
 import sympy as sp
 from icecream import ic
+import time
 # import copy
 
 sqampls_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to2.txt"
@@ -190,6 +191,23 @@ def contract_tree(tree, runs=0, add_opening_bracked=True):
 
 def get_tree(expression):
     last_open_bracket_idx = get_last_open_bracket(expression)
+    ic(last_open_bracket_idx)
+    while last_open_bracket_idx != -1:
+        ic(len(expression))
+        next_closing_bracket_idx = get_next_closing_bracket(expression, last_open_bracket_idx)
+        sub_expr = expression[last_open_bracket_idx+1:next_closing_bracket_idx]
+        sub_expr = [expression[last_open_bracket_idx-1]] + sub_expr  # add operator before ()
+        expression[last_open_bracket_idx-1] = sub_expr
+        del expression[last_open_bracket_idx:next_closing_bracket_idx+1]
+        last_open_bracket_idx = get_last_open_bracket(expression)
+        ic(last_open_bracket_idx)
+
+    return expression[0]
+
+
+def get_tree_old(expression):
+    last_open_bracket_idx = get_last_open_bracket(expression)
+    ic(last_open_bracket_idx)
     while last_open_bracket_idx != -1:
         next_closing_bracket_idx = get_next_closing_bracket(expression, last_open_bracket_idx)
         sub_expr = expression[last_open_bracket_idx+1:next_closing_bracket_idx]
@@ -197,6 +215,7 @@ def get_tree(expression):
         expression[last_open_bracket_idx-1] = sub_expr
         del expression[last_open_bracket_idx:next_closing_bracket_idx+1]
         last_open_bracket_idx = get_last_open_bracket(expression)
+        ic(last_open_bracket_idx)
 
     return expression[0]
 
@@ -290,16 +309,16 @@ def subscripts_to_subtree(expr, save_input=False):
         ret = p_sub_to_tree(expr_new)
         return ret
     
+
+    # if you're sure that your input is correct in the form 'asdf_{a, b, c}',
+    # then return `Tree[asdf, [a,b,c]]`
     if save_input:
         indices = subscript[1:-1].split(",")
         indices = ["%" + i for i in indices]
         return Tree(var, indices)
 
-    # else:
-    #     new_str, subscripts = format_other_subscripts(var, subscript)
-    #     new_str = list(more_itertools.collapse(new_str))
-    #     return [new_str, subscripts]
-    #
+    # if non of the above, just split at first `_`. The thing before is the node and
+    # there is only one subscript, namely everything after the `_`.
     return Tree(var, [subscript])
 
 

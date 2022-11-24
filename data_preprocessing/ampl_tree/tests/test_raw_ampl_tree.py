@@ -95,11 +95,18 @@ def test_p_sub_to_tree():
 
     expr_raw = "Prod;(;1/9;i;Pow;(;e;3;);Pow;(;Sum;(;Pow;(;m_e;2;);Prod;(;-2;s_13;);s_33;reg_prop;);-1;);Pow;(;Sum;(;Pow;(;m_e;2;);Prod;(;-2;s_13;);Prod;(;-2;s_14;);s_33;Prod;(;2;s_34;);reg_prop;);-1;);Sum;(;Prod;(;p_1_%\\sigma_244;gamma_{%\\sigma_241,%eps_157,%del_386};gamma_{+%\\sigma_241,%eta_297,%eta_330};gamma_{+%\\sigma_244,%eta_330,%eta_331};gamma_{%\\lambda_255,%eta_331,%del_387};A_{k_5,+%\\lambda_255}(p_5)^(*);e_{i_3,%del_386}(p_1)_u;e_{i_5,%eps_157}(p_3)_u^(*);s_{k_3,%del_387}(p_2)_u;s_{j_5,%eta_297}(p_4)_u^(*););Prod;(;-1;p_3_%\\sigma_244;gamma_{%\\sigma_241,%eps_158,%del_388};gamma_{+%\\sigma_241,%eta_300,%eta_332};gamma_{+%\\sigma_244,%eta_332,%eta_333};gamma_{%\\lambda_255,%eta_333,%del_389};A_{k_5,+%\\lambda_255}(p_5)^(*);e_{i_3,%del_388}(p_1)_u;e_{i_5,%eps_158}(p_3)_u^(*);s_{k_3,%del_389}(p_2)_u;s_{j_5,%eta_300}(p_4)_u^(*););Prod;(;-2;p_4_+%\\sigma_241;gamma_{%\\sigma_241,%eps_161,%del_394};gamma_{%\\lambda_255,%eta_306,%del_395};A_{k_5,+%\\lambda_255}(p_5)^(*);e_{i_3,%del_394}(p_1)_u;e_{i_5,%eps_161}(p_3)_u^(*);s_{k_3,%del_395}(p_2)_u;s_{j_5,%eta_306}(p_4)_u^(*);););)"
     expr_raw = expr_raw.split(";")
+    ic(np.array(expr_raw))
     tree_raw = get_tree(expr_raw)
     tree = ampl_raw_tree_to_nltk(tree_raw)
     tree = nltk_tree_expand_subscripts(tree)
-    ic(tree)
     tree.pretty_print(unicodelines=True)
+
+
+def test_get_tree():
+    expr_raw = "Prod;(;1/9;i;Pow;(;e;3;);Pow;(;Sum;(;Pow;(;m_e;2;);Prod;(;-2;s_13;);s_33;reg_prop;);-1;);Pow;(;Sum;(;Pow;(;m_e;2;);Prod;(;-2;s_13;);Prod;(;-2;s_14;);s_33;Prod;(;2;s_34;);reg_prop;);-1;);Sum;(;Prod;(;p_1_%\\sigma_244;gamma_{%\\sigma_241,%eps_157,%del_386};gamma_{+%\\sigma_241,%eta_297,%eta_330};gamma_{+%\\sigma_244,%eta_330,%eta_331};gamma_{%\\lambda_255,%eta_331,%del_387};A_{k_5,+%\\lambda_255}(p_5)^(*);e_{i_3,%del_386}(p_1)_u;e_{i_5,%eps_157}(p_3)_u^(*);s_{k_3,%del_387}(p_2)_u;s_{j_5,%eta_297}(p_4)_u^(*););Prod;(;-1;p_3_%\\sigma_244;gamma_{%\\sigma_241,%eps_158,%del_388};gamma_{+%\\sigma_241,%eta_300,%eta_332};gamma_{+%\\sigma_244,%eta_332,%eta_333};gamma_{%\\lambda_255,%eta_333,%del_389};A_{k_5,+%\\lambda_255}(p_5)^(*);e_{i_3,%del_388}(p_1)_u;e_{i_5,%eps_158}(p_3)_u^(*);s_{k_3,%del_389}(p_2)_u;s_{j_5,%eta_300}(p_4)_u^(*););Prod;(;-2;p_4_+%\\sigma_241;gamma_{%\\sigma_241,%eps_161,%del_394};gamma_{%\\lambda_255,%eta_306,%del_395};A_{k_5,+%\\lambda_255}(p_5)^(*);e_{i_3,%del_394}(p_1)_u;e_{i_5,%eps_161}(p_3)_u^(*);s_{k_3,%del_395}(p_2)_u;s_{j_5,%eta_306}(p_4)_u^(*);););)"
+    expr_raw = expr_raw.split(";")
+    ic(np.array(expr_raw))
+    tree_raw = get_tree(expr_raw)
 
 
 def test_trees():
@@ -108,23 +115,34 @@ def test_trees():
         ampls_raw = f.readlines(1000000)
         ampls_raw = [a[:-1] for a in ampls_raw]
         
-    # for i in [0, 1, 100, -1, -10, -100]:
-    #     exp = ampls_raw[i]
-    #     exp = exp.split(";")
-    #
-    #     tree_raw = get_tree(exp)
-    #     tree = ampl_raw_tree_to_nltk(tree_raw)
-    #     tree = nltk_tree_expand_subscripts(tree)
-    #     tree.pretty_print(unicodelines=True)
-    #     # tree.pretty_print(abbreviate=True, unicodelines=True)
-    #
-    # for i in np.random.choice(range(len(ampls_raw)), 100):
-    #     exp = ampls_raw[i]
-    #     exp = exp.split(";")
-    #
-    #     tree_raw = get_tree(exp)
-    #     tree = ampl_raw_tree_to_nltk(tree_raw)
-    #     tree = nltk_tree_expand_subscripts(tree)
-    #     ic(i)
-    #     ic(ampls_raw[i])
-    #     tree.pretty_print(unicodelines=True)
+    for i in [0, 1, 100, -1, -10, -100]:
+        exp = ampls_raw[i]
+        exp = exp.split(";")
+
+        tree_raw = get_tree(exp)
+        tree = ampl_raw_tree_to_nltk(tree_raw)
+        tree = nltk_tree_expand_subscripts(tree)
+        tree.pretty_print(unicodelines=True)
+        # tree.pretty_print(abbreviate=True, unicodelines=True)
+
+    for i in np.random.choice(range(len(ampls_raw)), 100):
+        exp = ampls_raw[i]
+        exp = exp.split(";")
+
+        ic(i)
+        tree_raw = get_tree(exp)
+        tree = ampl_raw_tree_to_nltk(tree_raw)
+        tree = nltk_tree_expand_subscripts(tree)
+        ic(ampls_raw[i])
+        tree.pretty_print(unicodelines=True)
+
+    # ic(ampls_raw[398])
+    # exp = ampls_raw[398]
+    # exp = exp.split(";")
+    # ic(np.array(exp))
+    # 
+    # tree_raw = get_tree(exp)
+    # print(tree_raw)
+    # tree = ampl_raw_tree_to_nltk(tree_raw)
+    # tree = nltk_tree_expand_subscripts(tree)
+    # tree.pretty_print(unicodelines=True)
