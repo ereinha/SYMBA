@@ -49,7 +49,11 @@ basis_functions = {
 
 
 def raw_ampl_to_tree(raw_ampl):
-    return 0
+    raw_ampl_split = raw_ampl.split(";")
+    tree_raw = get_tree(raw_ampl_split)
+    tree = ampl_raw_tree_to_nltk(tree_raw)
+    tree = nltk_tree_expand_subscripts(tree)
+    return tree
 
 
 def ampl_to_tree(arr, remove_hybrid_parentheses=False):
@@ -179,7 +183,8 @@ def contract_tree(tree, runs=0, add_opening_bracked=True):
     node = tree.label()
     nodes_considered = ["Sum", "Sum(", "Prod", "Prod("]  # ))
     if (node in nodes_considered) and (isinstance(tree[1], Tree)) and (tree[1].label() == node):
-        node = node + "("  # )
+        if add_opening_bracked:
+            node = node + "("  # )
         tree.set_label(node)
         subtree = contract_tree(tree[1])
         # del[tree[1:]]
