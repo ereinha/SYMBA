@@ -4,6 +4,9 @@ from icecream import ic
 import numpy as np
 import sympy as sp
 from nltk.tree import Tree
+from nltk.draw.tree import TreeView
+from nltk.draw.util import CanvasFrame
+from nltk.draw import TreeWidget
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
@@ -12,6 +15,7 @@ sys.path.append(parent)
 import sympy as sp
 from source.ampl_to_tree import ampl_to_tree, rightmost_operator_pos, func_to_tree, tree_to_prefix, expand_tree, contract_tree, get_tree, ampl_raw_tree_to_nltk
 from source.ampl_to_tree import has_subscript, subscripts_to_subtree, is_basis_func, basis_function_to_subtree, nltk_tree_expand_subscripts, p_sub_to_tree
+from source.ampl_to_tree import rename_indices, collect_indices, is_index, raw_ampl_to_tree, categorize_indices, get_index_replacements, nltk_tree_replace_leaves
 
 
 def test_tree():
@@ -28,6 +32,116 @@ def test_indices():
     assert has_subscript("asdf_{a, b, c}") == True
     assert has_subscript("p_mu") == True
     assert has_subscript("e_{i_3,%del_171}(p_1)_u") == True
+
+
+def test_rename_indices():
+    expr = "gamma_{%sigma_126,%eta_132,%del_172}"
+    tree = subscripts_to_subtree(expr)
+    tree_renamed = rename_indices(tree)
+    tree.pretty_print(unicodelines=True)
+    tree_renamed.pretty_print(unicodelines=True)
+
+    tree_raw = ['Prod', '-1/2', 'i', ['Pow', 'e', '2'], ['Pow', ['Sum', ['Pow', 'm_e', '2'], ['Prod', '-1', 's_13'], ['Prod', '1/2', 'reg_prop']], '-1'], 'gamma_{+%\\sigma_126,%eps_36,%del_171}', 'gamma_{%\\sigma_126,%eta_132,%del_172}', 'e_{i_3,%del_171}(p_1)_u', 'e_{k_3,%del_172}(p_2)_u', 'e_{l_3,%eps_36}(p_3)_u^(*)', 'e_{i_5,%eta_132}(p_4)_u^(*)']
+    tree = ampl_raw_tree_to_nltk(tree_raw)
+    tree = nltk_tree_expand_subscripts(tree) 
+    tree_renamed = rename_indices(tree)
+    tree.pretty_print(unicodelines=True)
+    tree_renamed.pretty_print(unicodelines=True)
+
+
+    expr_1 = "Sum;(;1;gamma_{a,b,c};)"
+    expr_2 = "Sum;(;1;gamma_{%\\sigma_126,%eta_132,%del_172};)"
+    expr_3 = "Sum;(;1;e_{i_3,%del_171}(p_1)_u;)"
+    expr_4 = "Sum;(;1;gamma_{a,a_0,c};)"
+    expr_5 = "Sum;(;1;gamma_{a,a,a_0};)"
+    expr_6 = "Sum;(;1;gamma_{a,a,c};)"
+    tree_1 = raw_ampl_to_tree(expr_1)
+    tree_2 = raw_ampl_to_tree(expr_2)
+    tree_3 = raw_ampl_to_tree(expr_3)
+    tree_4 = raw_ampl_to_tree(expr_4)
+    tree_5 = raw_ampl_to_tree(expr_5)
+    tree_6 = raw_ampl_to_tree(expr_6)
+
+    print("tree:")
+    tree_1.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_1).pretty_print(unicodelines=True)
+    print("tree:")
+    tree_2.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_2).pretty_print(unicodelines=True)
+    print("tree:")
+    tree_3.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_3).pretty_print(unicodelines=True)
+    print("tree:")
+    tree_4.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_4).pretty_print(unicodelines=True)
+    print("tree:")
+    tree_5.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_5).pretty_print(unicodelines=True)
+    print("tree:")
+    tree_6.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_6).pretty_print(unicodelines=True)
+
+
+def test_nltk_tree_replace_leaves():
+    tree = Tree("asdf", ["a", "b", "c"])
+
+    # test empty replacements
+    tree_replaced = nltk_tree_replace_leaves(tree, dict())
+    assert tree_replaced == tree
+
+    # test replacement of some leaves
+    replacements = {"a": "banana", "b": "melona"}
+    tree_replaced = nltk_tree_replace_leaves(tree, replacements)
+    assert tree_replaced == Tree("asdf", ["banana", "melona", "c"])
+    ic(tree)
+    ic(tree_replaced)
+
+
+
+def test_collect_indices():
+    assert collect_indices("banana") == set()
+    assert collect_indices("%i") == set(["%i"])
+    assert collect_indices("%i") != set(["%j"])
+
+    expr_raw = "Prod;(;-1/2;i;Pow;(;e;2;);Pow;(;Sum;(;Pow;(;m_e;2;);Prod;(;-1;s_13;);Prod;(;1/2;reg_prop;););-1;);gamma_{+%\\sigma_126,%eps_36,%del_171};gamma_{%\\sigma_126,%eta_132,%del_172};e_{i_3,%del_171}(p_1)_u;e_{k_3,%del_172}(p_2)_u;e_{l_3,%eps_36}(p_3)_u^(*);e_{i_5,%eta_132}(p_4)_u^(*);)"
+    tree = raw_ampl_to_tree(expr_raw)
+    tree = nltk_tree_expand_subscripts(tree)
+    # tree.pretty_print(unicodelines=True)
+    ic(collect_indices(tree))
+    expr_2 = "gamma_{%sigma_126,%eta_132,%del_172}"
+    tree_2 = subscripts_to_subtree(expr_2)
+    ic(collect_indices(tree_2))
+    assert collect_indices(tree_2) == set(["%sigma_126", "%eta_132", "%del_172"])
+    assert collect_indices(tree_2) != set(["%sigma_126", "%eta_132", "%del_172", "%banana"])
+    assert collect_indices("") == set()
+
+
+def test_categorize_indices():
+    indices = {'%del_171', '%del_172', '%eps_36', '%eta_132', '%i_3', '%i_5', '%k_3', '%l_3', '%sigma_126'}
+    categorization = categorize_indices(indices)
+    ic(indices)
+    ic(categorization)
+
+
+def test_get_index_replacements():
+    indices = {'%del_171', '%del_172', '%eps_36', '%eta_132', '%i_3', '%i_5', '%k_3', '%l_3', '%sigma_126'}
+    categorization = categorize_indices(indices)
+    index_replacements = get_index_replacements(categorization)
+    ic(index_replacements)
+
+def test_is_index():
+    assert is_index("asdf") == False
+    assert is_index("%i") == True
+    assert is_index("%i_1234") == True
+    assert is_index("%alpha_1234") == True
+    assert is_index("%alpha_%1234") == False
+    assert is_index("") == False
 
 
 def test_subscripts_to_subtree():
@@ -109,6 +223,27 @@ def test_get_tree():
     tree_raw = get_tree(expr_raw)
 
 
+def test_tree_to_prefix():
+    arr = ["Prod(", "-1/2", "a", "c", "Pow", "e", "2", ")"]  # )
+    tree = ampl_to_tree(arr, remove_hybrid_parentheses=True)
+    print("\ngiven tree")
+    tree.pretty_print()
+    prefix = tree_to_prefix(tree)
+    ic(prefix)
+    hybrid_prefix = tree_to_prefix(tree, hybrid=True)
+    ic(hybrid_prefix)
+    expanded_tree = expand_tree(tree)
+    print("expanded tree")
+    expanded_tree.pretty_print()
+
+
+    # round trip
+    assert hybrid_prefix == arr
+
+    assert expanded_tree == ampl_to_tree(prefix)
+    assert tree == contract_tree(ampl_to_tree(prefix, remove_hybrid_parentheses=True), add_opening_bracket=False)
+
+
 def test_trees():
     ampls_raw_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to3_raw.txt"
     with open(ampls_raw_file) as f:
@@ -130,9 +265,12 @@ def test_trees():
     print("Testing 1000 random amplitudes")
     for i in np.random.choice(range(len(ampls_raw)), 1000):
         exp = ampls_raw[i]
+        tree = raw_ampl_to_tree(exp)
+        tree = rename_indices(tree)
+        # tree.pretty_print(unicodelines=True)
         exp = exp.split(";")
 
         tree_raw = get_tree(exp)
         tree = ampl_raw_tree_to_nltk(tree_raw)
         tree = nltk_tree_expand_subscripts(tree)
-        # tree.pretty_print(unicodelines=True)
+

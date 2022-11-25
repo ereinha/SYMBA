@@ -2,7 +2,7 @@ from nltk.tree import Tree
 import sympy as sp
 from icecream import ic
 import time
-# import copy
+import copy
 
 sqampls_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to2.txt"
 ampls_raw_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to2_raw.txt"
@@ -17,8 +17,7 @@ ampls_raw_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to2_raw.txt"
 # Since I think it easier to first go to the tree and then prefix, I'll do the tree here.
 
 
-operators = {
-        "ee": 3,
+operators = { "ee": 3,
         "ee^(*)": 3,
         "b": 3,
         "b^(*)": 3,
@@ -46,6 +45,30 @@ basis_functions = {
         "b": 2,
         "A": 2,
         }
+
+
+indices_roman = [
+        "i",
+        "j",
+        "k",
+        "l",
+        ]
+
+
+indices_greek = [
+        "alpha",
+        "beta",
+        "gam",
+        "del",
+        "eta",
+        "sigma",
+        "tau",
+        "rho",
+        "lambda",
+        "nu",
+        "mu",
+        "eps",
+        ]
 
 
 def raw_ampl_to_tree(raw_ampl):
@@ -123,12 +146,17 @@ def func_to_tree(arr):
     return Tree(func, args)
 
 
-def tree_to_prefix(tree, hybrid=False):
+def tree_to_prefix(tree_input, hybrid=False):
     """converts a tree to an array in prefix notation.
     Automatically detects hybrid prefix if an operator is like `Prod(` )
     If operators don't have parentheses, you can still go to hybrid prefix with
     `hybrid=True`. Default is `False`
     """
+    tree = copy.deepcopy(tree_input)
+    if not hybrid:
+        tree = expand_tree(tree)
+    if hybrid:
+        tree = contract_tree(tree)
     arr = []
     node = tree.label()
     if hybrid and (node in ["Sum", "Prod"]) and (len(tree)>2):
@@ -145,11 +173,12 @@ def tree_to_prefix(tree, hybrid=False):
     return arr
 
 
-def expand_tree(tree):
+def expand_tree(tree_input):
     """
     If the tree has Prod or Sum nodes with more than 2 arguments
     --> expand them to only have 2
     """
+    tree = copy.deepcopy(tree_input)  # is there a better way to not mutate tree?
     if not isinstance(tree, Tree):
         return tree
     node = tree.label()
@@ -167,7 +196,7 @@ def expand_tree(tree):
     return tree
 
 
-def contract_tree(tree, runs=0, add_opening_bracked=True):
+def contract_tree(tree_input, runs=0, add_opening_bracket=True):
     """inverse of `expand_tree`, not fully tested.
 
     Note: This implementation is not fully tested and probably not working 100%.
@@ -176,6 +205,8 @@ def contract_tree(tree, runs=0, add_opening_bracked=True):
     cases are caught, but I don't think so.
     """
 
+    tree = copy.deepcopy(tree_input)  # don't mutate tree
+
     if runs>2:
         return tree
     if not isinstance(tree, Tree):
@@ -183,15 +214,15 @@ def contract_tree(tree, runs=0, add_opening_bracked=True):
     node = tree.label()
     nodes_considered = ["Sum", "Sum(", "Prod", "Prod("]  # ))
     if (node in nodes_considered) and (isinstance(tree[1], Tree)) and (tree[1].label() == node):
-        if add_opening_bracked:
+        if add_opening_bracket:
             node = node + "("  # )
         tree.set_label(node)
-        subtree = contract_tree(tree[1])
+        subtree = contract_tree(tree[1], add_opening_bracket=add_opening_bracket)
         # del[tree[1:]]
         tree[0:] = tree[0:1] + subtree[0:]
     else:
-        tree[0:] = [contract_tree(t) for t in tree[0:]]
-    return contract_tree(tree, runs=runs+1)
+        tree[0:] = [contract_tree(t, add_opening_bracket=add_opening_bracket) for t in tree[0:]]
+    return contract_tree(tree, runs=runs+1, add_opening_bracket=add_opening_bracket)
 
 
 def get_tree(expression):
@@ -408,11 +439,156 @@ def format_gamma(subscript):
 
     return [ind1, ind2, ind3]
 
+
 def remove_unnecessary_in_indices(expr):
     expr_new = expr.replace("\\", "")
     expr_new = expr_new.replace("%", "")
     expr_new = expr_new.replace("+", "")
     return expr_new
+
+
+def rename_indices(tree):
+    """
+    For a finished nltk.Tree, make indices easier.
+    By easier I mean:
+    The indices are in the form `{'%eta_132', '%del_172', '%sigma_126'}`,
+    but the numbers are too big and this is not handy for a neural network,
+    because there will be too many different tokens.
+    The indices are all collected and then categorized by what is in front of the `_`.
+    Then the number behind the `_` are enumerated and changed such that they start from 0.
+    
+    Of course the expression should have only dummy indices, otherwise this will probably break something.
+    Could implement a check if the index appears at least (or exaclty?) twice.
+    """
+    indices = collect_indices(tree)
+    index_categorization = categorize_indices(indices)
+    index_replacements = get_index_replacements(index_categorization)
+
+    tree = nltk_tree_replace_leaves(tree, index_replacements)
+
+    return tree
+
+
+def nltk_tree_replace_leaves(tree: Tree, index_replacements: dict):
+    """
+    For a tree, go threough each leaf and replace it if the string is in index_replacements
+    """
+    for leafPos in tree.treepositions('leaves'):
+        leaf = tree[leafPos]
+        if leaf in index_replacements.keys():
+            tree[leafPos] = index_replacements[leaf]
+    return tree
+
+def get_index_replacements(index_categorization: dict):
+    """
+    For a given index_categorization (from categrorize_indices),
+    get the replacements how to rename the indices to have "low" numbers 
+    E.g. this
+        {
+        '%del': ['171', '172'],
+         '%eps': ['36'],
+         '%eta': ['132'],
+         '%i': ['3', '5'],
+         '%k': ['3'],
+         '%l': ['3'],
+         '%sigma': ['126']
+        }
+    turns into this
+        {
+        '%del_171': `del_0`,
+        '%del_172': `del_1`,
+        `%eta_132`: `eta_0`,
+        ...
+        }
+    """
+    index_replacements = dict()
+    for key, values in index_categorization.items():
+        for i, i_old in enumerate(values):
+            if i_old == "MISSING":  # basically means index had no `_`
+                index_replacements[key] = key + "_" + str(i)
+            else:
+                index_replacements[key+"_"+str(i_old)] = key + "_" + str(i)
+    return index_replacements
+            
+
+def categorize_indices(indices: set):
+    """
+    The indices come in a set like this:
+        {'%del_171', '%del_172', '%eps_36', '%eta_132', '%i_3', '%i_5', '%k_3', '%l_3', '%sigma_126'}
+    Return a dictionary where they are all categorized by the string in front of the `_`.
+    Above set gives
+        {
+        '%del': ['171', '172'],
+         '%eps': ['36'],
+         '%eta': ['132'],
+         '%i': ['3', '5'],
+         '%k': ['3'],
+         '%l': ['3'],
+         '%sigma': ['126']
+        }
+
+    If an index appears without `_`, e.g. `%a` instead of `%a_1`,
+    then it is treated as if it was `a_MISSING` with the string "MISSING" as index.
+    If you are using MISSING as an index, well ...
+    """
+    categorization = dict()
+    for index in indices:
+        index_split = index.split("_", maxsplit=1)
+        if (len(index_split) == 1):  # no _ in index
+            if not index_split[0] in categorization.keys():
+                categorization[index_split[0]] = ["MISSING"]
+            else:
+                categorization[index_split[0]].append("MISSING")
+        else:
+            name, number = index_split
+            if not name in categorization.keys():
+                categorization[name] = [number]
+            else:
+                categorization[name].append(number)
+
+    for key in categorization.keys():
+        categorization[key].sort()
+    return categorization
+
+
+
+def collect_indices(tree, indices=None):
+    """collect all indices in a nltk.Tree
+    Indices are marked by having a `%`.
+
+    Feels kind of stupid writing my own search for this, but
+    I could not find it anywhere.
+    """
+    if indices is None:
+        indices = set()
+
+    if isinstance(tree, str):
+        if is_index(tree):
+            indices.add(tree)
+            return indices
+
+    if isinstance(tree, Tree):
+        for leaf in tree.leaves():
+            # indices.add(collect_indices(leaf))
+            indices = collect_indices(leaf, indices=indices)
+
+    return indices
+
+def is_index(s: str):
+    """
+    Something is an index if it starts with `%`.
+    """
+    if not isinstance(s, str):
+        return False
+    if s == "":
+        return False
+    if not s[0] == "%":
+        return False
+    if len(s.split("%")) > 2:
+        return False
+
+    return True
+
 
 if __name__ == "__main__":
     # with open(sqampls_file) as f:
