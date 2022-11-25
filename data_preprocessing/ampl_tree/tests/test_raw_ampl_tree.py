@@ -12,6 +12,7 @@ sys.path.append(parent)
 import sympy as sp
 from source.ampl_to_tree import ampl_to_tree, rightmost_operator_pos, func_to_tree, tree_to_prefix, expand_tree, contract_tree, get_tree, ampl_raw_tree_to_nltk
 from source.ampl_to_tree import has_subscript, subscripts_to_subtree, is_basis_func, basis_function_to_subtree, nltk_tree_expand_subscripts, p_sub_to_tree
+from source.ampl_to_tree import rename_indices, collect_indices, is_index, raw_ampl_to_tree, categorize_indices, get_index_replacements
 
 
 def test_tree():
@@ -28,6 +29,54 @@ def test_indices():
     assert has_subscript("asdf_{a, b, c}") == True
     assert has_subscript("p_mu") == True
     assert has_subscript("e_{i_3,%del_171}(p_1)_u") == True
+
+
+def test_rename_indices():
+    tree_raw = ['Prod', '-1/2', 'i', ['Pow', 'e', '2'], ['Pow', ['Sum', ['Pow', 'm_e', '2'], ['Prod', '-1', 's_13'], ['Prod', '1/2', 'reg_prop']], '-1'], 'gamma_{+%\\sigma_126,%eps_36,%del_171}', 'gamma_{%\\sigma_126,%eta_132,%del_172}', 'e_{i_3,%del_171}(p_1)_u', 'e_{k_3,%del_172}(p_2)_u', 'e_{l_3,%eps_36}(p_3)_u^(*)', 'e_{i_5,%eta_132}(p_4)_u^(*)']
+    tree = ampl_raw_tree_to_nltk(tree_raw)
+    tree = nltk_tree_expand_subscripts(tree) 
+    tree.pretty_print(unicodelines=True)
+    ic(rename_indices(tree))
+
+
+def test_collect_indices():
+    assert collect_indices("banana") == set()
+    assert collect_indices("%i") == set(["%i"])
+    assert collect_indices("%i") != set(["%j"])
+
+    expr_raw = "Prod;(;-1/2;i;Pow;(;e;2;);Pow;(;Sum;(;Pow;(;m_e;2;);Prod;(;-1;s_13;);Prod;(;1/2;reg_prop;););-1;);gamma_{+%\\sigma_126,%eps_36,%del_171};gamma_{%\\sigma_126,%eta_132,%del_172};e_{i_3,%del_171}(p_1)_u;e_{k_3,%del_172}(p_2)_u;e_{l_3,%eps_36}(p_3)_u^(*);e_{i_5,%eta_132}(p_4)_u^(*);)"
+    tree = raw_ampl_to_tree(expr_raw)
+    tree = nltk_tree_expand_subscripts(tree)
+    # tree.pretty_print(unicodelines=True)
+    ic(collect_indices(tree))
+    expr_2 = "gamma_{%sigma_126,%eta_132,%del_172}"
+    tree_2 = subscripts_to_subtree(expr_2)
+    ic(collect_indices(tree_2))
+    assert collect_indices(tree_2) == set(["%sigma_126", "%eta_132", "%del_172"])
+    assert collect_indices(tree_2) != set(["%sigma_126", "%eta_132", "%del_172", "%banana"])
+    assert collect_indices("") == set()
+
+
+def test_categorize_indices():
+    indices = {'%del_171', '%del_172', '%eps_36', '%eta_132', '%i_3', '%i_5', '%k_3', '%l_3', '%sigma_126'}
+    categorization = categorize_indices(indices)
+    ic(indices)
+    ic(categorization)
+
+
+def test_get_index_replacements():
+    indices = {'%del_171', '%del_172', '%eps_36', '%eta_132', '%i_3', '%i_5', '%k_3', '%l_3', '%sigma_126'}
+    categorization = categorize_indices(indices)
+    index_replacements = get_index_replacements(categorization)
+    ic(index_replacements)
+
+def test_is_index():
+    assert is_index("asdf") == False
+    assert is_index("%i") == True
+    assert is_index("%i_1234") == True
+    assert is_index("%alpha_1234") == True
+    assert is_index("%alpha_%1234") == False
+    assert is_index("") == False
 
 
 def test_subscripts_to_subtree():

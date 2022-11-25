@@ -48,6 +48,30 @@ basis_functions = {
         }
 
 
+indices_roman = [
+        "i",
+        "j",
+        "k",
+        "l",
+        ]
+
+
+indices_greek = [
+        "alpha",
+        "beta",
+        "gam",
+        "del",
+        "eta",
+        "sigma",
+        "tau",
+        "rho",
+        "lambda",
+        "nu",
+        "mu",
+        "eps",
+        ]
+
+
 def raw_ampl_to_tree(raw_ampl):
     raw_ampl_split = raw_ampl.split(";")
     tree_raw = get_tree(raw_ampl_split)
@@ -408,11 +432,121 @@ def format_gamma(subscript):
 
     return [ind1, ind2, ind3]
 
+
 def remove_unnecessary_in_indices(expr):
     expr_new = expr.replace("\\", "")
     expr_new = expr_new.replace("%", "")
     expr_new = expr_new.replace("+", "")
     return expr_new
+
+
+def rename_indices(tree):
+    """
+    For a finished nltk.Tree, make indices easier.
+    Indices are collected and then renamed such that they are easier.
+    Only Lorentz indices are considered.
+    """
+    indices = collect_indices(tree)
+    return indices
+
+
+def get_index_replacements(index_categorization: dict):
+    """
+    For a given index_categorization (from categrorize_indices),
+    get the replacements how to rename the indices to have "low" numbers 
+    E.g. this
+        {
+        '%del': ['171', '172'],
+         '%eps': ['36'],
+         '%eta': ['132'],
+         '%i': ['3', '5'],
+         '%k': ['3'],
+         '%l': ['3'],
+         '%sigma': ['126']
+        }
+    turns into this
+        {
+        '%del_171': `del_0`,
+        '%del_172': `del_1`,
+        `%eta_132`: `eta_0`,
+        ...
+        }
+    """
+    index_replacements = dict()
+    for key, values in index_categorization.items():
+        for i, i_old in enumerate(values):
+            index_replacements[key+str(i_old)] = key+str(i)
+    return index_replacements
+            
+    
+
+def categorize_indices(indices: set):
+    """
+    The indices come in a set like this:
+        {'%del_171', '%del_172', '%eps_36', '%eta_132', '%i_3', '%i_5', '%k_3', '%l_3', '%sigma_126'}
+    Return a dictionary where they are all categorized by the string in front of the `_`.
+    Above set gives
+        {
+        '%del': ['171', '172'],
+         '%eps': ['36'],
+         '%eta': ['132'],
+         '%i': ['3', '5'],
+         '%k': ['3'],
+         '%l': ['3'],
+         '%sigma': ['126']
+        }
+    """
+    categorization = dict()
+    for index in indices:
+        name, number = index.split("_", maxsplit=1)
+        if not name in categorization.keys():
+            categorization[name] = [number]
+        else:
+            categorization[name].append(number)
+
+    for key in categorization.keys():
+        categorization[key].sort()
+    return categorization
+
+
+
+def collect_indices(tree, indices=None):
+    """collect all indices in a nltk.Tree
+    Indices are marked by having a `%`.
+
+    Feels kind of stupid writing my own search for this, but
+    I could not find it anywhere.
+    """
+    if indices is None:
+        indices = set()
+
+    if isinstance(tree, str):
+        if is_index(tree):
+            indices.add(tree)
+            return indices
+
+    if isinstance(tree, Tree):
+        for leaf in tree.leaves():
+            # indices.add(collect_indices(leaf))
+            indices = collect_indices(leaf, indices=indices)
+
+    return indices
+
+def is_index(s: str):
+    """
+    Something is an index if it starts with `%`.
+    """
+    if not isinstance(s, str):
+        return False
+    if s == "":
+        return False
+    if not s[0] == "%":
+        return False
+    if len(s.split("%")) > 2:
+        return False
+
+    return True
+
 
 if __name__ == "__main__":
     # with open(sqampls_file) as f:
