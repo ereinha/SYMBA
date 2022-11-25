@@ -458,7 +458,6 @@ def rename_indices(tree):
     index_replacements = get_index_replacements(index_categorization)
 
     tree = nltk_tree_replace_leaves(tree, index_replacements)
-    tree.pretty_print()
 
     return tree
 
