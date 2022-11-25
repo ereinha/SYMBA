@@ -504,7 +504,10 @@ def get_index_replacements(index_categorization: dict):
     index_replacements = dict()
     for key, values in index_categorization.items():
         for i, i_old in enumerate(values):
-            index_replacements[key+"_"+str(i_old)] = key + "_" + str(i)
+            if i_old == "MISSING":  # basically means index had no `_`
+                index_replacements[key] = key + "_" + str(i)
+            else:
+                index_replacements[key+"_"+str(i_old)] = key + "_" + str(i)
     return index_replacements
             
 
@@ -523,14 +526,25 @@ def categorize_indices(indices: set):
          '%l': ['3'],
          '%sigma': ['126']
         }
+
+    If an index appears without `_`, e.g. `%a` instead of `%a_1`,
+    then it is treated as if it was `a_MISSING` with the string "MISSING" as index.
+    If you are using MISSING as an index, well ...
     """
     categorization = dict()
     for index in indices:
-        name, number = index.split("_", maxsplit=1)
-        if not name in categorization.keys():
-            categorization[name] = [number]
+        index_split = index.split("_", maxsplit=1)
+        if (len(index_split) == 1):  # no _ in index
+            if not index_split[0] in categorization.keys():
+                categorization[index_split[0]] = ["MISSING"]
+            else:
+                categorization[index_split[0]].append("MISSING")
         else:
-            categorization[name].append(number)
+            name, number = index_split
+            if not name in categorization.keys():
+                categorization[name] = [number]
+            else:
+                categorization[name].append(number)
 
     for key in categorization.keys():
         categorization[key].sort()

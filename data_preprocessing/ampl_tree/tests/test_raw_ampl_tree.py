@@ -49,6 +49,45 @@ def test_rename_indices():
     tree_renamed.pretty_print(unicodelines=True)
 
 
+    expr_1 = "Sum;(;1;gamma_{a,b,c};)"
+    expr_2 = "Sum;(;1;gamma_{%\\sigma_126,%eta_132,%del_172};)"
+    expr_3 = "Sum;(;1;e_{i_3,%del_171}(p_1)_u;)"
+    expr_4 = "Sum;(;1;gamma_{a,a_0,c};)"
+    expr_5 = "Sum;(;1;gamma_{a,a,a_0};)"
+    expr_6 = "Sum;(;1;gamma_{a,a,c};)"
+    tree_1 = raw_ampl_to_tree(expr_1)
+    tree_2 = raw_ampl_to_tree(expr_2)
+    tree_3 = raw_ampl_to_tree(expr_3)
+    tree_4 = raw_ampl_to_tree(expr_4)
+    tree_5 = raw_ampl_to_tree(expr_5)
+    tree_6 = raw_ampl_to_tree(expr_6)
+
+    print("tree:")
+    tree_1.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_1).pretty_print(unicodelines=True)
+    print("tree:")
+    tree_2.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_2).pretty_print(unicodelines=True)
+    print("tree:")
+    tree_3.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_3).pretty_print(unicodelines=True)
+    print("tree:")
+    tree_4.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_4).pretty_print(unicodelines=True)
+    print("tree:")
+    tree_5.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_5).pretty_print(unicodelines=True)
+    print("tree:")
+    tree_6.pretty_print(unicodelines=True)
+    print("renamed tree:")
+    rename_indices(tree_6).pretty_print(unicodelines=True)
+
+
 def test_nltk_tree_replace_leaves():
     tree = Tree("asdf", ["a", "b", "c"])
 
