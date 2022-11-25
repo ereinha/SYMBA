@@ -207,31 +207,10 @@ def test_trees():
         exp = ampls_raw[i]
         tree = raw_ampl_to_tree(exp)
         tree = rename_indices(tree)
+        tree.pretty_print(unicodelines=True)
+        exp = exp.split(";")
+
+        tree_raw = get_tree(exp)
+        tree = ampl_raw_tree_to_nltk(tree_raw)
+        tree = nltk_tree_expand_subscripts(tree)
         # tree.pretty_print(unicodelines=True)
-        # exp = exp.split(";")
-        #
-        # tree_raw = get_tree(exp)
-        # tree = ampl_raw_tree_to_nltk(tree_raw)
-        # tree = nltk_tree_expand_subscripts(tree)
-        # tree.pretty_print(unicodelines=True)
-
-    # some random trees to files
-    for i in np.random.choice(range(len(ampls_raw)), 10):
-        exp = ampls_raw[i]
-        tree = raw_ampl_to_tree(exp)
-        tree = rename_indices(tree)
-        cf = CanvasFrame()
-        tc = TreeWidget(cf.canvas(),tree)
-        cf.add_widget(tc,10,10) # (10,10) offsets
-
-        folder = "trees_figures/"
-        filename = '{}tree_{}'.format(folder, i)
-        # TreeView(tree)._cframe.print_to_file(filename+".ps")
-        cf.print_to_file(filename+".ps")
-        os.system('ps2pdf -dEPSCrop {}.ps {}.pdf'.format(filename, filename))
-        os.system('rm {}.ps'.format(filename))
-
-        cf.destroy()
-
-        with open(filename+".txt", "w") as f:
-            f.write(exp)
