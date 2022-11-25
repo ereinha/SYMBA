@@ -191,16 +191,13 @@ def contract_tree(tree, runs=0, add_opening_bracked=True):
 
 def get_tree(expression):
     last_open_bracket_idx = get_last_open_bracket(expression)
-    ic(last_open_bracket_idx)
     while last_open_bracket_idx != -1:
-        ic(len(expression))
         next_closing_bracket_idx = get_next_closing_bracket(expression, last_open_bracket_idx)
         sub_expr = expression[last_open_bracket_idx+1:next_closing_bracket_idx]
         sub_expr = [expression[last_open_bracket_idx-1]] + sub_expr  # add operator before ()
         expression[last_open_bracket_idx-1] = sub_expr
         del expression[last_open_bracket_idx:next_closing_bracket_idx+1]
         last_open_bracket_idx = get_last_open_bracket(expression)
-        ic(last_open_bracket_idx)
 
     return expression[0]
 

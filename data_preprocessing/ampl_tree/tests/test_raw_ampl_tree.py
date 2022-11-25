@@ -112,7 +112,9 @@ def test_get_tree():
 def test_trees():
     ampls_raw_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to3_raw.txt"
     with open(ampls_raw_file) as f:
-        ampls_raw = f.readlines(1000000)
+        # ampls_raw = f.readlines(1000000)
+        ampls_raw = f.readlines()
+        print("Loaded {} amplitudes.".format(len(ampls_raw)))
         ampls_raw = [a[:-1] for a in ampls_raw]
         
     for i in [0, 1, 100, -1, -10, -100]:
@@ -122,27 +124,15 @@ def test_trees():
         tree_raw = get_tree(exp)
         tree = ampl_raw_tree_to_nltk(tree_raw)
         tree = nltk_tree_expand_subscripts(tree)
-        tree.pretty_print(unicodelines=True)
+        # tree.pretty_print(unicodelines=True)
         # tree.pretty_print(abbreviate=True, unicodelines=True)
 
-    for i in np.random.choice(range(len(ampls_raw)), 100):
+    print("Testing 1000 random amplitudes")
+    for i in np.random.choice(range(len(ampls_raw)), 1000):
         exp = ampls_raw[i]
         exp = exp.split(";")
 
-        ic(i)
         tree_raw = get_tree(exp)
         tree = ampl_raw_tree_to_nltk(tree_raw)
         tree = nltk_tree_expand_subscripts(tree)
-        ic(ampls_raw[i])
-        tree.pretty_print(unicodelines=True)
-
-    # ic(ampls_raw[398])
-    # exp = ampls_raw[398]
-    # exp = exp.split(";")
-    # ic(np.array(exp))
-    # 
-    # tree_raw = get_tree(exp)
-    # print(tree_raw)
-    # tree = ampl_raw_tree_to_nltk(tree_raw)
-    # tree = nltk_tree_expand_subscripts(tree)
-    # tree.pretty_print(unicodelines=True)
+        # tree.pretty_print(unicodelines=True)
