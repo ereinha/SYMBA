@@ -1,27 +1,11 @@
 # collection of functions to convert data from `raw_data.nosync`.
 from icecream import ic
 import sympy as sp
-from itertools import (takewhile,repeat)
+from itertools import (takewhile, repeat)
 from tqdm import tqdm
 import numpy as np
-# from source.SympyPrefix import prefix_to_sympy, sympy_to_prefix, sympy_to_hybrid_prefix, simplify_and_prefix, simplify_sqampl
-# probably worst way of doing this, but I wanted to import the package SympyPrefix that is a few folders up.
-# documentation: https://docs.python.org/3/library/importlib.html#importing-a-source-file-directly
-import sys
-import importlib.util
-spec = importlib.util.spec_from_file_location("SympyPrefix", "sympy-prefix/source/SympyPrefix.py")
-SympyPrefix = importlib.util.module_from_spec(spec)
-sys.modules["module.name"] = SympyPrefix
-spec.loader.exec_module(SympyPrefix)
-prefix_to_sympy = SympyPrefix.prefix_to_sympy
-sympy_to_prefix = SympyPrefix.sympy_to_prefix
-sympy_to_hybrid_prefix = SympyPrefix.sympy_to_hybrid_prefix
-hybrid_prefix_to_sympy = SympyPrefix.hybrid_prefix_to_sympy
-
-spec = importlib.util.spec_from_file_location("sp2tree", "data-preprocessing/tree/sympy_to_tree.py")
-sp2tree = importlib.util.module_from_spec(spec)
-sys.modules["module.name"] = sp2tree
-spec.loader.exec_module(sp2tree)
+from data_preprocessing.sympy_prefix.source.SympyPrefix import prefix_to_sympy, sympy_to_prefix, sympy_to_hybrid_prefix, hybrid_prefix_to_sympy
+import data_preprocessing.tree.sympy_to_tree as sp2tree
 
 def rawincount(filename):
     """count numer of lines in a file. 
@@ -29,16 +13,16 @@ def rawincount(filename):
     """
     f = open(filename, 'rb')
     bufgen = takewhile(lambda x: x, (f.raw.read(1024*1024) for _ in repeat(None)))
-    return sum( buf.count(b'\n') for buf in bufgen )
+    return sum(buf.count(b'\n') for buf in bufgen)
 
 def load_raw_amplitudes(filename, max_lines=-1):
     """
     Loading raw amplitudes from filename.
-    
+
     Options:
         - `max_lines`: maximum number of lines to read
     """
-    print("Loading amplitudes from "+ filename)
+    print("Loading amplitudes from " + filename)
     if max_lines > 0:
         number_of_lines = max_lines
     else:
@@ -51,7 +35,7 @@ def load_raw_amplitudes(filename, max_lines=-1):
         ctr = 0
         while line:
             line = f.readline()
-            data[ctr] = line 
+            data[ctr] = line
             pbar.update(1)
             ctr = ctr + 1
             if ctr >= number_of_lines:
@@ -144,6 +128,7 @@ def conv_sqampl_tree(sqampl):
     """
     return 0
 
+
 if __name__ == "__main__":
     print("This script is to show how the 'raw' data can be preprocessed.")
 
@@ -174,4 +159,17 @@ if __name__ == "__main__":
     ic(np.array(sqamplitudes_prefix[0]))
     print("Backconvertion of", max_lines, "amplitdudes working?", sqamplitudes == sqamplitudes_retrieved)
     assert sqamplitudes == sqamplitudes_retrieved
+
+    print("----------------------------\n\n")
+    print("tree notation\n")
+
     sp2tree.sympy_to_tree(sqamplitudes[0]).pretty_print()
+    sp2tree.sympy_to_tree(sqamplitudes[1]).pretty_print()
+    sp2tree.sympy_to_tree(sqamplitudes[2]).pretty_print()
+
+    print("converting amplitudes to trees")
+    sqamplitudes_tree = [sp2tree.sympy_to_tree(a) for a in tqdm(sqamplitudes)]
+    print("converting trees back to expressions")
+    sqamplitudes_retrieved = [sp2tree.tree_to_sympy(a) for a in tqdm(sqamplitudes_tree)]
+    print("Backconvertion of", max_lines, "amplitdudes working?", sqamplitudes == sqamplitudes_retrieved)
+    assert sqamplitudes == sqamplitudes_retrieved
