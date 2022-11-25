@@ -2,7 +2,7 @@ from nltk.tree import Tree
 import sympy as sp
 from icecream import ic
 import time
-# import copy
+import copy
 
 sqampls_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to2.txt"
 ampls_raw_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to2_raw.txt"
@@ -17,8 +17,7 @@ ampls_raw_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to2_raw.txt"
 # Since I think it easier to first go to the tree and then prefix, I'll do the tree here.
 
 
-operators = {
-        "ee": 3,
+operators = { "ee": 3,
         "ee^(*)": 3,
         "b": 3,
         "b^(*)": 3,
@@ -147,12 +146,17 @@ def func_to_tree(arr):
     return Tree(func, args)
 
 
-def tree_to_prefix(tree, hybrid=False):
+def tree_to_prefix(tree_input, hybrid=False):
     """converts a tree to an array in prefix notation.
     Automatically detects hybrid prefix if an operator is like `Prod(` )
     If operators don't have parentheses, you can still go to hybrid prefix with
     `hybrid=True`. Default is `False`
     """
+    tree = copy.deepcopy(tree_input)
+    if not hybrid:
+        tree = expand_tree(tree)
+    if hybrid:
+        tree = contract_tree(tree)
     arr = []
     node = tree.label()
     if hybrid and (node in ["Sum", "Prod"]) and (len(tree)>2):
@@ -169,11 +173,12 @@ def tree_to_prefix(tree, hybrid=False):
     return arr
 
 
-def expand_tree(tree):
+def expand_tree(tree_input):
     """
     If the tree has Prod or Sum nodes with more than 2 arguments
     --> expand them to only have 2
     """
+    tree = copy.deepcopy(tree_input)  # is there a better way to not mutate tree?
     if not isinstance(tree, Tree):
         return tree
     node = tree.label()
@@ -191,7 +196,7 @@ def expand_tree(tree):
     return tree
 
 
-def contract_tree(tree, runs=0, add_opening_bracked=True):
+def contract_tree(tree_input, runs=0, add_opening_bracket=True):
     """inverse of `expand_tree`, not fully tested.
 
     Note: This implementation is not fully tested and probably not working 100%.
@@ -200,6 +205,8 @@ def contract_tree(tree, runs=0, add_opening_bracked=True):
     cases are caught, but I don't think so.
     """
 
+    tree = copy.deepcopy(tree_input)  # don't mutate tree
+
     if runs>2:
         return tree
     if not isinstance(tree, Tree):
@@ -207,15 +214,15 @@ def contract_tree(tree, runs=0, add_opening_bracked=True):
     node = tree.label()
     nodes_considered = ["Sum", "Sum(", "Prod", "Prod("]  # ))
     if (node in nodes_considered) and (isinstance(tree[1], Tree)) and (tree[1].label() == node):
-        if add_opening_bracked:
+        if add_opening_bracket:
             node = node + "("  # )
         tree.set_label(node)
-        subtree = contract_tree(tree[1])
+        subtree = contract_tree(tree[1], add_opening_bracket=add_opening_bracket)
         # del[tree[1:]]
         tree[0:] = tree[0:1] + subtree[0:]
     else:
-        tree[0:] = [contract_tree(t) for t in tree[0:]]
-    return contract_tree(tree, runs=runs+1)
+        tree[0:] = [contract_tree(t, add_opening_bracket=add_opening_bracket) for t in tree[0:]]
+    return contract_tree(tree, runs=runs+1, add_opening_bracket=add_opening_bracket)
 
 
 def get_tree(expression):
@@ -500,7 +507,6 @@ def get_index_replacements(index_categorization: dict):
             index_replacements[key+"_"+str(i_old)] = key + "_" + str(i)
     return index_replacements
             
-    
 
 def categorize_indices(indices: set):
     """

@@ -184,6 +184,27 @@ def test_get_tree():
     tree_raw = get_tree(expr_raw)
 
 
+def test_tree_to_prefix():
+    arr = ["Prod(", "-1/2", "a", "c", "Pow", "e", "2", ")"]  # )
+    tree = ampl_to_tree(arr, remove_hybrid_parentheses=True)
+    print("\ngiven tree")
+    tree.pretty_print()
+    prefix = tree_to_prefix(tree)
+    ic(prefix)
+    hybrid_prefix = tree_to_prefix(tree, hybrid=True)
+    ic(hybrid_prefix)
+    expanded_tree = expand_tree(tree)
+    print("expanded tree")
+    expanded_tree.pretty_print()
+
+
+    # round trip
+    assert hybrid_prefix == arr
+
+    assert expanded_tree == ampl_to_tree(prefix)
+    assert tree == contract_tree(ampl_to_tree(prefix, remove_hybrid_parentheses=True), add_opening_bracket=False)
+
+
 def test_trees():
     ampls_raw_file = "../../data.nosync/QED_amplitudes_TreeLevel_2to3_raw.txt"
     with open(ampls_raw_file) as f:
@@ -207,10 +228,10 @@ def test_trees():
         exp = ampls_raw[i]
         tree = raw_ampl_to_tree(exp)
         tree = rename_indices(tree)
-        tree.pretty_print(unicodelines=True)
+        # tree.pretty_print(unicodelines=True)
         exp = exp.split(";")
 
         tree_raw = get_tree(exp)
         tree = ampl_raw_tree_to_nltk(tree_raw)
         tree = nltk_tree_expand_subscripts(tree)
-        # tree.pretty_print(unicodelines=True)
+

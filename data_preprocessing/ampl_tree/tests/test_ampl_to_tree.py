@@ -190,6 +190,7 @@ def test_contract_tree():
     tree_3_contracted = contract_tree(tree_3)
     tree_3_contracted.pretty_print()
     tree_3_round_trip = expand_tree(tree_3_contracted)
+    tree_3_round_trip = contract_tree(tree_3_round_trip, add_opening_bracket=False)
     assert tree_3_round_trip == tree_3
 
     print("---")
@@ -208,7 +209,7 @@ def test_contract_tree():
     assert tree_4 == tree_4_roundtrip
     
 
-def round_trip(ampl):
+def round_trip_expand_contract(ampl):
     """
     Check if the given amplitude (as array) is correctly round-trip encoded.
     Here round trip means expand and contract.
@@ -219,12 +220,12 @@ def round_trip(ampl):
     """
     tree = ampl_to_tree(ampl)
     tree_expanded = expand_tree(tree)
-    tree_contracted = contract_tree(tree_expanded)
-    tree_round_trip = expand_tree(tree)
+    tree_contracted = contract_tree(tree_expanded, add_opening_bracket=True)
+    tree_round_trip = expand_tree(tree_contracted)
     assert tree_expanded == tree_round_trip
 
 
-def test_real_amplitudes_round_trips():
+def test_real_amplitudes_round_trips_expand_contract():
     ampls_file = "data.nosync/QED_amplitudes_TreeLevel_2to2.txt"
     with open(ampls_file) as f:
         ampls = f.readlines()
@@ -233,7 +234,7 @@ def test_real_amplitudes_round_trips():
     # for i in range(len(ampls)):
     for i in [0, 20, 100, -1, -20, -100]:
         ampl = ampls[i].split(",")
-        round_trip(ampl)
+        round_trip_expand_contract(ampl)
 
 
     ampls_file = "data.nosync/QED_amplitudes_TreeLevel_3to2.txt"
@@ -244,4 +245,4 @@ def test_real_amplitudes_round_trips():
     # for i in range(len(ampls)):
     for i in [0, 20, 100, -1, -20, -100]:
         ampl = ampls[i].split(",")
-        round_trip(ampl)
+        round_trip_expand_contract(ampl)
