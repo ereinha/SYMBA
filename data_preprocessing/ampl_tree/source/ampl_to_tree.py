@@ -443,12 +443,35 @@ def remove_unnecessary_in_indices(expr):
 def rename_indices(tree):
     """
     For a finished nltk.Tree, make indices easier.
-    Indices are collected and then renamed such that they are easier.
-    Only Lorentz indices are considered.
+    By easier I mean:
+    The indices are in the form `{'%eta_132', '%del_172', '%sigma_126'}`,
+    but the numbers are too big and this is not handy for a neural network,
+    because there will be too many different tokens.
+    The indices are all collected and then categorized by what is in front of the `_`.
+    Then the number behind the `_` are enumerated and changed such that they start from 0.
+    
+    Of course the expression should have only dummy indices, otherwise this will probably break something.
+    Could implement a check if the index appears at least (or exaclty?) twice.
     """
     indices = collect_indices(tree)
-    return indices
+    index_categorization = categorize_indices(indices)
+    index_replacements = get_index_replacements(index_categorization)
 
+    tree = nltk_tree_replace_leaves(tree, index_replacements)
+    tree.pretty_print()
+
+    return tree
+
+
+def nltk_tree_replace_leaves(tree: Tree, index_replacements: dict):
+    """
+    For a tree, go threough each leaf and replace it if the string is in index_replacements
+    """
+    for leafPos in tree.treepositions('leaves'):
+        leaf = tree[leafPos]
+        if leaf in index_replacements.keys():
+            tree[leafPos] = index_replacements[leaf]
+    return tree
 
 def get_index_replacements(index_categorization: dict):
     """
@@ -475,7 +498,7 @@ def get_index_replacements(index_categorization: dict):
     index_replacements = dict()
     for key, values in index_categorization.items():
         for i, i_old in enumerate(values):
-            index_replacements[key+str(i_old)] = key+str(i)
+            index_replacements[key+"_"+str(i_old)] = key + "_" + str(i)
     return index_replacements
             
     

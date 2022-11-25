@@ -12,7 +12,7 @@ sys.path.append(parent)
 import sympy as sp
 from source.ampl_to_tree import ampl_to_tree, rightmost_operator_pos, func_to_tree, tree_to_prefix, expand_tree, contract_tree, get_tree, ampl_raw_tree_to_nltk
 from source.ampl_to_tree import has_subscript, subscripts_to_subtree, is_basis_func, basis_function_to_subtree, nltk_tree_expand_subscripts, p_sub_to_tree
-from source.ampl_to_tree import rename_indices, collect_indices, is_index, raw_ampl_to_tree, categorize_indices, get_index_replacements
+from source.ampl_to_tree import rename_indices, collect_indices, is_index, raw_ampl_to_tree, categorize_indices, get_index_replacements, nltk_tree_replace_leaves
 
 
 def test_tree():
@@ -32,11 +32,34 @@ def test_indices():
 
 
 def test_rename_indices():
+    expr = "gamma_{%sigma_126,%eta_132,%del_172}"
+    tree = subscripts_to_subtree(expr)
+    tree_renamed = rename_indices(tree)
+    tree.pretty_print(unicodelines=True)
+    tree_renamed.pretty_print(unicodelines=True)
+
     tree_raw = ['Prod', '-1/2', 'i', ['Pow', 'e', '2'], ['Pow', ['Sum', ['Pow', 'm_e', '2'], ['Prod', '-1', 's_13'], ['Prod', '1/2', 'reg_prop']], '-1'], 'gamma_{+%\\sigma_126,%eps_36,%del_171}', 'gamma_{%\\sigma_126,%eta_132,%del_172}', 'e_{i_3,%del_171}(p_1)_u', 'e_{k_3,%del_172}(p_2)_u', 'e_{l_3,%eps_36}(p_3)_u^(*)', 'e_{i_5,%eta_132}(p_4)_u^(*)']
     tree = ampl_raw_tree_to_nltk(tree_raw)
     tree = nltk_tree_expand_subscripts(tree) 
+    tree_renamed = rename_indices(tree)
     tree.pretty_print(unicodelines=True)
-    ic(rename_indices(tree))
+    tree_renamed.pretty_print(unicodelines=True)
+
+
+def test_nltk_tree_replace_leaves():
+    tree = Tree("asdf", ["a", "b", "c"])
+
+    # test empty replacements
+    tree_replaced = nltk_tree_replace_leaves(tree, dict())
+    assert tree_replaced == tree
+
+    # test replacement of some leaves
+    replacements = {"a": "banana", "b": "melona"}
+    tree_replaced = nltk_tree_replace_leaves(tree, replacements)
+    assert tree_replaced == Tree("asdf", ["banana", "melona", "c"])
+    ic(tree)
+    ic(tree_replaced)
+
 
 
 def test_collect_indices():
