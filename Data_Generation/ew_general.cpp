@@ -42,31 +42,30 @@ auto callWithTimeout(std::chrono::minutes timeout_duration, Func func) -> declty
     std::mutex m;
     std::condition_variable cv;
     bool completed = false;
-    decltype(func()) result;
+    std::optional<decltype(func())> result;
 
-    std::thread t([&cv, &result, &completed, func]() {
-        result = func();
+    std::function<decltype(func())()> task = func;
+    std::thread t([&cv, &result, &completed, task]() {
+        result.emplace(task());
         completed = true;
         cv.notify_one();
     });
 
-    {
-        std::unique_lock<std::mutex> l(m);
-        if (!cv.wait_for(l, timeout_duration, [&completed]{ return completed; })) {
-            t.detach(); // Detach if still running and timeout occurred
-            throw std::runtime_error("Timeout");
-        } else {
-            t.join(); // Ensure the thread finishes before returning
-        }
+    std::unique_lock<std::mutex> l(m);
+    if (!cv.wait_for(l, timeout_duration, [&completed]{ return completed; })) {
+        t.detach(); // Detach if still running and timeout occurred
+        throw std::runtime_error("Timeout");
+    } else {
+        t.join(); // Ensure the thread finishes before returning
     }
 
-    return result;
+    return *result;
 }
 
 void evaluateAndPrint(Model& model, std::vector<std::string>& parts, const std::vector<Insertion>& insertions, const int& numIn, Order& order) {
     try {
-        Amplitude ampl = callWithTimeout(std::chrono::minutes(5),
-                                    [&]() -> Amplitude {
+        auto ampl = callWithTimeout(std::chrono::minutes(5),
+                                    [&]() -> auto {
                                         return model.computeAmplitude(order, insertions);
                                     });
         if (!ampl.empty()) {
@@ -74,40 +73,40 @@ void evaluateAndPrint(Model& model, std::vector<std::string>& parts, const std::
                 Expr term = ampl.expression(n);
                 Evaluate(term, csl::eval::abbreviation);
 
-                std::cout << "Interaction: ";
+                dtout << "Interaction: ";
                 for (int i = 0; i < numIn; i++) {
-                    std::cout << " " << getParticleString(insertions[i]) << " ";
+                    dtout << " " << getParticleString(insertions[i]) << " ";
                 }
                 
-                std::cout << " to ";
+                dtout << " to ";
                 
                 for (size_t j = numIn; j < parts.size(); j++) {
-                    std::cout << " " << getParticleString(insertions[j]) << " ";
+                    dtout << " " << getParticleString(insertions[j]) << " ";
                 }
-                std::cout << ": " << term << " : ";
+                dtout << ": " << term << " : ";
 
-                Amplitude newAmpl = Amplitude(ampl.getOptions(), {ampl.getDiagrams()[n]}, ampl.getKinematics())
+                Amplitude newAmpl = Amplitude(ampl.getOptions(), {ampl.getDiagrams()[n]}, ampl.getKinematics());
                 Expr squaredAmpl = callWithTimeout(std::chrono::minutes(5),
                                                        [&]() -> Expr {
                                                             return model.computeSquaredAmplitude(newAmpl);
                                                        });
                 Evaluate(squaredAmpl, csl::eval::abbreviation);
-                std::cout << squaredAmpl << '\n';
+                dtout << squaredAmpl << '\n';
             }
         }
     } catch (const std::exception& e) {
         // Log the error and continue with the next combination
-        std::cout << "Error evaluating combination: ";
+        dtout << "Error evaluating combination: ";
         for (int i = 0; i < numIn; i++) {
-            std::cout << " " << getParticleString(insertions[i]) << " ";
+            dtout << " " << getParticleString(insertions[i]) << " ";
         }
         
-        std::cout << " to ";
+        dtout << " to ";
         
         for (size_t j = numIn; j < parts.size(); j++) {
-            std::cout << " " << getParticleString(insertions[j]) << " ";
+            dtout << " " << getParticleString(insertions[j]) << " ";
         }
-        std::cout << ": " << e.what() << '\n';
+        dtout << ": " << e.what() << '\n';
     }
 }
 
@@ -307,7 +306,7 @@ int main(int argc, char *argv[]) {
     Replaced(ElectroWeak, H0, CSL_0);
     Replaced(ElectroWeak, H1, (h(X) + v) / sqrt_s(2));
 
-    // std::cout << ElectroWeak << std::endl;
+    // dtout << ElectroWeak << std::endl;
 
     ///////////////////////////////////////////////////
     // Gather masses of all particles,
@@ -327,13 +326,13 @@ int main(int argc, char *argv[]) {
     Replaced(ElectroWeak, g, e / sin_s(thetaW));
     Replaced(ElectroWeak, g_p, e / cos_s(thetaW));
 
-    // std::cout << ElectroWeak << std::endl;
-    // std::cout << "Computing feynman rules ... " << std::endl;
+    // dtout << ElectroWeak << std::endl;
+    // dtout << "Computing feynman rules ... " << std::endl;
     // auto rules = ComputeFeynmanRules(ElectroWeak);
     // Display(rules);
     // // ExportPNG("EW_rules", rules);
     //
-    // std::cout << ElectroWeak << std::endl;
+    // dtout << ElectroWeak << std::endl;
 
 
     W          = W_SM;
