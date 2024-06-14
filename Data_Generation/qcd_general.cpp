@@ -151,13 +151,19 @@ int recursive_loop(const int& max_loops, const int& current_loop, const int& ran
         int loop_range = (current_loop == 0 || current_loop == numIn) ? 0 : start_index;
         std::vector<std::string> original_parts(parts.begin() + current_loop, parts.end());
 
+//        for (int i = loop_range; i < range; i++) {
+//            parts[current_loop].clear();
+//            parts[current_loop] = std::string(lis[i]);
+//            recursive_loop(max_loops, current_loop + 1, range, model, numIn, numOut, order, parts, insertions, options, lis, i);
+//        }
+//
+//        std::copy(original_parts.begin(), original_parts.end(), parts.begin() + current_loop);
         for (int i = loop_range; i < range; i++) {
-            parts[current_loop].clear();
+            std::string original_part = std::move(parts[current_loop]);
             parts[current_loop] = std::string(lis[i]);
             recursive_loop(max_loops, current_loop + 1, range, model, numIn, numOut, order, parts, insertions, options, lis, i);
+            parts[current_loop] = std::move(original_part);
         }
-
-        std::copy(original_parts.begin(), original_parts.end(), parts.begin() + current_loop);
     }
     return current_loop;
 }
