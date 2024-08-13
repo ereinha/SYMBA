@@ -40,3 +40,14 @@
 **out**
 data.nosync/**
 raw_data.nosync/**
+
+# Aryamaan Specific
+
+dataset/
+dataset1000/
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+.ipynb_checkpoints
