@@ -152,23 +152,6 @@ def parallel_e_lexicase_selection(individuals, k, points, pset):
 
     return selected
 
-    # Seed population with predefined solutions
-# def seed_population(pop_size,seed_exprs,pset,toolbox):
-#     population = []
-#     count = 0
-#     for expr in seed_exprs:
-#         try :
-#             ind = creator.Individual.from_string(expr, pset)
-#             count += 1
-#             population.append(ind)
-#         except :
-#             continue
-#     print(len(seed_exprs),count)       
-#     for _ in range(pop_size - count):
-#         ind = toolbox.individual()
-#         population.append(ind)
-#     return population
-
 def seed_population(pop_size, seed_exprs, pset, toolbox):
     population = []
     count = 0
@@ -176,7 +159,7 @@ def seed_population(pop_size, seed_exprs, pset, toolbox):
     for expr in seed_exprs:
         # Check if the string form of the expression is just an integer
         try:
-            if expr.strip().isdigit():  # Remove individuals that are just integers
+            if expr.strip().lstrip('-').isdigit():  # Handles negative integers too
                 continue
             ind = creator.Individual.from_string(expr, pset)
             count += 1
@@ -204,7 +187,7 @@ def setup_toolbox(pset, points):
     toolbox.register("map", parallel_evalSymbReg,num_cores = num_cores)
     toolbox.register("select", lambda individuals, k: parallel_e_lexicase_selection(individuals, k, points,pset)) 
     toolbox.register("mate", gp.cxOnePoint)
-    toolbox.register("mutate", mutate_with_fix, expr=toolbox.expr, pset=pset)
+    toolbox.register("mutate", gp.mutUniform, expr=toolbox.expr, pset=pset)
 
     return toolbox
 
@@ -270,17 +253,3 @@ def generate_preference_pairs(population, points,pset,top_n=2,middle_n =3,compar
                     
     print(len(pairs))
     return pairs
-
-def fix_terminal_types(individual):
-    for node in individual:
-        if isinstance(node, gp.Terminal):
-            # Ensure that terminals with <class 'object'> are properly cast to integers
-            if isinstance(node.value, object) and isinstance(node.value, int):
-                node.value = int(node.value)  # Explicitly cast back to int
-    return individual
-
-def mutate_with_fix(individual, expr, pset):
-    # Apply terminal type fix first
-    individual = fix_terminal_types(individual)
-    # Standard mutation
-    return gp.mutUniform(individual, expr=expr, pset=pset)
