@@ -32,8 +32,8 @@ $ `python main.py --config_file ./config.yaml`
 Or pass the arguments directly without config_file. Refer documentation for all arguments.
 
 ## Pretrained Weights
-Vanilla Transformer: link \
-xVal Transformer: link
+Vanilla Transformer: [link](https://drive.google.com/file/d/1rUqJLPFTxfv5cCBHWXTh8poMqxwMUK5Q/view) \
+xVal Transformer: [link](https://drive.google.com/file/d/1d9YqaQGuZbmc7_49c9MQOvp2EXDRDYL3/view)
 
 ## Documentation
 Full documentation can be found in the `docs` folder.
