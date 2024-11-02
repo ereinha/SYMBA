@@ -43,12 +43,41 @@ class xValEmbedder(nn.Module):
         super().__init__()
         self.embedding = nn.Embedding(vocab_size, emb_size)
         self.emb_size = emb_size
+        self.layer_norm = nn.LayerNorm(emb_size)
 
     def forward(self, tokens, num_array):
         out = self.embedding(tokens.long()) * math.sqrt(self.emb_size)
-        out *= num_array
+        # print("embeds", out.shape)
+        out = self.layer_norm(out)
+        out *= num_array.unsqueeze(-1)
         return out
 
+class LinearPointEmbedder(nn.Module):
+    def __init__(self, vocab_size: int, input_emb_size, emb_size, max_input_points, dropout=0.2):
+        super().__init__()
+        self.embedding = nn.Embedding(vocab_size, input_emb_size)
+        self.emb_size = emb_size
+        self.input_size = max_input_points*input_emb_size
+        self.fc1 = nn.Linear(self.input_size, emb_size)
+        self.fc2 = nn.Linear(emb_size, emb_size)
+        self.activation = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, tokens, num_array):
+        out = self.embedding(tokens.long()) # * math.sqrt(self.emb_size)
+        #dims = torch.tensor(out.size(1)*out.size(2)*out.size(3))
+        #mag_norm = 5/torch.sqrt(dims)
+        #out += torch.zeros_like(out).uniform_(-mag_norm, mag_norm)
+        #print("embed", out.shape)
+        #print("num", num_array.shape)
+        bs, n = out.shape[0], out.shape[1]
+        out *= num_array.unsqueeze(-1)
+        out = out.view(bs, n, -1)
+        out = self.activation(self.fc1(out))
+        out = self.dropout(out)
+        out = self.fc2(out)
+        #print("out", out.shape)
+        return out
 
 class Model(nn.Module):
     '''Seq2Seq Network'''
@@ -73,7 +102,8 @@ class Model(nn.Module):
                                        dropout=dropout,
                                        batch_first=True)
         self.generator = nn.Linear(emb_size, tgt_vocab_size)
-        self.src_tok_emb = xValEmbedder(src_vocab_size, emb_size)
+        self.src_tok_emb = LinearPointEmbedder(src_vocab_size, input_emb_size, emb_size, max_input_points, dropout)
+        #xValEmbedder(src_vocab_size, emb_size)
         self.tgt_tok_emb = TokenEmbedding(tgt_vocab_size, emb_size)
         self.positional_encoding = PositionalEncoding(emb_size, dropout=dropout)
 
@@ -86,7 +116,7 @@ class Model(nn.Module):
                 src_padding_mask: Tensor,
                 tgt_padding_mask: Tensor,
                 memory_key_padding_mask: Tensor):
-        src_emb = self.positional_encoding(self.src_tok_emb(src, num_array))
+        src_emb = self.src_tok_emb(src, num_array)
         tgt_emb = self.positional_encoding(self.tgt_tok_emb(trg))
 
         

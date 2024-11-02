@@ -1,83 +1,56 @@
-import os
-import pandas as pd
-import numpy as np
 import argparse
-from tqdm import tqdm
+import yaml
+from dataclasses import dataclass, asdict
+import os
 
-def get_args_parser():
-    parser = argparse.ArgumentParser("Prepare AI Feynman Dataset", add_help=False)
-    parser.add_argument('--dataset_dir', default="../Feynman_with_units", type=str)
-    parser.add_argument('--dataframe_path', default="FeynmanEquations.csv", type=str)
-    parser.add_argument('--chunk_size', default=200, type=int)
-    parser.add_argument('--output_dir', default="dataset", type=str)
+@dataclass
+class Config:
+    max_len: int = 33
+    xval: bool = False
+    chunk_size: int = 400
+    df_path: str = "./FeynmanEquationsModified.csv"
+    output_dir: str = "./data"
+    encoder_vocab: str = "./algorithms/transformer/encoder_vocab"
+    decoder_vocab: str = "./algorithms/transformer/decoder_vocab"
 
-    return parser
+def parse_args() -> Config:
+    parser = argparse.ArgumentParser(description="Argument parser for dataset preparation")
 
-#def progressBar(iterable, decimals = 1, length = 100, fill = '█', printEnd = "\r"):
-#    """
-#    Call in a loop to create terminal progress bar
-#    @params:
-#        iterable    - Required  : iterable object (Iterable)
-#        prefix      - Optional  : prefix string (Str)
-#        suffix      - Optional  : suffix string (Str)
-#        decimals    - Optional  : positive number of decimals in percent complete (Int)
-#        length      - Optional  : character length of bar (Int)
-#        fill        - Optional  : bar fill character (Str)
-#        printEnd    - Optional  : end character (e.g. "\r", "\r\n") (Str)
-#    """
-#    total = len(list(iterable))
-#    # Progress Bar Printing Function
-#    print(total)
-#    def printProgressBar (iteration):
-#        percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-#        filledLength = int(length * iteration // total)
-#        bar = fill * filledLength + '-' * (length - filledLength)
-#        print(f'\rProgress |{bar}| {percent}% Complete', end = printEnd)
-#    # Initial Call
-#    printProgressBar(0)
-#    # Update Progress Bar
-#    for i, item in enumerate(iterable):
-#        yield item
-#        printProgressBar(i + 1)
-#    # Print New Line on Complete
-#    print()
-
-def main(args):
-    df = pd.read_csv(args.dataframe_path)
+    # Config file argument
+    parser.add_argument("--config_file", type=str, default=None, help="Path to YAML config file")
     
-    train_df = {
-        "filename":[],
-        "data_num":[],
-        "number":[]
-        }
+    # Other Config fields as arguments
+    parser.add_argument("--chunk_size", type=int, default=400, help="Maximum length of input sequences")
+    parser.add_argument("--max_len", type=int, default=11, help="Maximum length for processed data")
+    parser.add_argument("--df_path", type=str, default="./FeynmanEquationsModified.csv", help="Path to the dataset CSV file")
+    parser.add_argument("--output_dir", type=str, default="./data", help="Output directory for processed data")
+    parser.add_argument("--encoder_vocab", type=str, default="./encoder_vocab", help="Path to encoder vocabulary file")
+    parser.add_argument("--decoder_vocab", type=str, default="./decoder_vocab", help="Path to decoder vocabulary file")
+    parser.add_argument("--xval", action="store_true", default=True, help="xVal")
 
-    for index, row in tqdm(df.iterrows()):
-#    for index, row in progressBar(df.iterrows(), length = 50):
-        path = os.path.join(args.dataset_dir, row["Filename"])
-        with open(path) as file:
-            data = file.readlines()
-        data = np.array([i.split() for i in data], dtype=np.float32)
-        n_splits = data.shape[0] // args.chunk_size
-        data = data[:n_splits*args.chunk_size]
-        chunks = np.split(data, n_splits)
-
-        sub_dir = os.path.join(args.output_dir, row["Filename"])
-        os.makedirs(sub_dir, exist_ok=True)
-
-        for (index, chunk) in enumerate(chunks):
-            np.save(os.path.join(sub_dir, f"{index}.npy"), chunk)
-
-        train_df["filename"].extend([row["Filename"]]*n_splits)
-        train_df["data_num"].extend([i for i in range(n_splits)])
-        train_df["number"].extend([row["Number"] for i in range(n_splits)])
-
-    train_df = pd.DataFrame(train_df)
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser('Prepare AI Feynman Dataset', parents=[get_args_parser()])
     args = parser.parse_args()
 
-    if args.output_dir:
-        os.makedirs(args.output_dir, exist_ok=True)
+    # Load config from YAML file if provided
+    config_dict = vars(args)
+    if args.config_file and os.path.isfile(args.config_file):
+        with open(args.config_file, 'r') as file:
+            file_config = yaml.safe_load(file)
+            config_dict.update({k: v for k, v in file_config.items() if k in config_dict and v is not None})
+    
+    config_dict.pop("config_file")
+    return Config(**config_dict)
 
-    main(args)
+if __name__ == "__main__":
+    config = parse_args()
+
+    if config.xval:
+        from algorithms.xval_transformers.dataset import prepare_dataset
+    else:
+        from algorithms.transformers.dataset import prepare_dataset
+    
+    train_df, equations_df = prepare_dataset(config)
+
+    train_df.to_csv(os.path.join(config.output_dir, "train_df.csv"))
+    equations_df.to_csv(os.path.join(config.output_dir, "equations_df.csv"))
+    
+    print("Dataset preparation complete!")
