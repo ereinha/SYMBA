@@ -52,12 +52,13 @@ class Trainer:
         # Create directory for saving logs
         self.logs_dir = os.path.join(self.config.root_dir, self.config.experiment_name)
         os.makedirs(self.logs_dir, exist_ok=True)
+        self.config.save(self.logs_dir)
 
     def get_model(self):
         """
         Initialize and return the model based on the configuration.
         """
-        from model.seq2seq import Model
+        from algorithms.xval_transformers.model.seq2seq import Model
         model = Model(num_encoder_layers=self.config.num_encoder_layers,
                         num_decoder_layers=self.config.num_decoder_layers,
                         emb_size=self.config.embedding_size,
@@ -75,7 +76,7 @@ class Trainer:
         Initialize and return the optimizer based on the configuration.
         """
         optimizer_parameters = self.model.parameters()
-
+        
         if self.config.optimizer_type == "sgd":
             optimizer = torch.optim.SGD(optimizer_parameters, lr=self.config.optimizer_lr, momentum=self.config.optimizer_momentum,)
         elif self.config.optimizer_type == "adam":
@@ -97,6 +98,8 @@ class Trainer:
             scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode='min', patience=2)
         elif self.config.scheduler_type == "cosine_annealing_warm_restart":
             scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(self.optimizer, self.config.T_0, self.config.T_mult)
+        elif self.config.scheduler_type == "cosine_annealing":
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, self.config.T_max)
         elif self.config.scheduler_type == "none":
             scheduler = None
         else:
@@ -134,19 +137,22 @@ class Trainer:
             with torch.autocast(device_type='cuda', dtype=self.dtype):
                 src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(src, tgt[:, :-1], self.device)
                 logits = self.model(src, num_array, tgt[:, :-1], src_mask, tgt_mask, src_padding_mask, tgt_padding_mask, src_padding_mask)
+                #if self.config.use_half_precision:
+                #    logits = logits.clamp(min=1e-4)
                 loss = self.criterion(logits.reshape(-1, logits.shape[-1]), tgt[:, 1:].reshape(-1))
-                
+                            
             running_loss.update(loss.item(), bs)
             pbar.set_postfix(loss=running_loss.avg)
-            
             self.optimizer.zero_grad()
             self.scaler.scale(loss).backward()
-
             if self.config.clip_grad_norm > 0:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.clip_grad_norm)
             self.scaler.step(self.optimizer)
             self.scaler.update()
-
+            
+            if self.config.scheduler_type in ["cosine_annealing", "cosine_annealing_warm_restarts"]:
+                self.scheduler.step()
+    
         return running_loss.avg
 
     def evaluate(self, phase):
@@ -191,6 +197,7 @@ class Trainer:
         """
         Main training loop.
         """
+#        torch.autograd.set_detect_anomaly(True)
         start_epoch = self.current_epoch
         for self.current_epoch in range(start_epoch, self.config.epochs):
             training_loss = self.train_one_epoch() 
@@ -200,9 +207,9 @@ class Trainer:
             self.valid_loss_list.append(round(valid_loss, 7))
             self.valid_accuracy_tok_list.append(round(valid_accuracy_tok, 7))
             
-            if self.scheduler == "multi_step":
+            if self.config.scheduler_type == "multi_step":
                 self.scheduler.step()
-            elif self.scheduler == "reduce_lr_on_plateau":
+            elif self.config.scheduler_type == "reduce_lr_on_plateau":
                 self.scheduler.step(valid_loss)
                 
             if valid_loss<self.best_val_loss:
@@ -261,14 +268,17 @@ class Trainer:
         
         y_preds = []
         y_true = []
-        for src, tgt in pbar:
+        for src, num_array, tgt in pbar:
             src = src.to(self.device)
+            num_array = num_array.to(self.device)
             tgt = tgt.numpy()
             bs = src.size(0)
-            y_pred = predictor.predict(src[0].unsqueeze(0)) #only one example from each batch
+            y_pred = predictor.predict(src[0].unsqueeze(0), num_array[0].unsqueeze(0)) #only one example from each batch
             y_preds.append(y_pred.cpu().numpy())
             y_true.append(np.trim_zeros(tgt[0]))
-
+            # print("pred", y_pred.cpu().tolist())
+            # print("true", y_true[-1].tolist())
+            
         test_accuracy_seq = sequence_accuracy(y_true, y_preds)
         f= open(os.path.join(self.logs_dir, "score.txt"),"w+")
         f.write(f"Token Accuracy = {(round(test_accuracy_tok, 7))}\n")

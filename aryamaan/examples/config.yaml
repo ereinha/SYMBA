@@ -1,0 +1,59 @@
+# Experiment details
+experiment_name: "test"
+root_dir: "/pscratch/sd/a/aryamaan"
+device: "cuda:0"
+
+# Training parameters
+epochs: 1
+seed: 42
+use_half_precision: true
+
+# Data parameters
+train_batch_size: 256
+test_batch_size: 256
+train_split: 0.8
+test_split: 0.1
+primary_df: ./FeynmanEquationsModified.csv
+train_df: ./data/train_df.csv
+data_dir: ./data
+chunk_size: 400
+
+# Scheduler parameters
+scheduler_type: "cosine_annealing" 
+T_0: 10
+T_mult: 1
+T_max: 125000
+
+# Optimizer parameters
+optimizer_type: "adam" 
+optimizer_lr: 5.0e-5
+optimizer_momentum: 0.9
+optimizer_weight_decay: 0.0001
+clip_grad_norm: -1
+
+# Model parameters
+model_name: "seq2seq_transformer"
+xval: true
+embedding_size: 64
+hidden_dim: 64
+nhead: 8
+num_encoder_layers: 2
+num_decoder_layers: 6
+dropout: 0.2
+input_emb_size: 64
+max_input_points: 11
+src_vocab_size: 3
+tgt_vocab_size: 59
+
+# Criterion
+criterion: "cross_entropy"
+
+# Hybrid parameters
+pop_size: 500
+cxpb: 0.7
+mutpb: 0.2
+num_generations: 15
+gp_verbose: true
+beam_size: 5
+num_equations: 20
+

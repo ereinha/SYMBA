@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torch.nn.utils.rnn import pad_sequence
-from utils import EncoderTokenizer, DecoderTokenizer
+from utils import DecoderTokenizer
 
 PAD_IDX = 0
 NUM_IDX = 1
@@ -23,10 +23,10 @@ def prepare_dataset(config):
     - train_df: DataFrame containing training data information
     - equations_df: DataFrame containing equations information
     """
-    input_max_len = config.input_max_len
+    #input_max_len = config.chunk_size
     df = pd.read_csv(config.df_path)
 
-    encoder_tokenizer = EncoderTokenizer(config.encoder_vocab, config.max_len)
+    # encoder_tokenizer = EncoderTokenizer(config.encoder_vocab, config.max_len)
     decoder_tokenizer = DecoderTokenizer(config.decoder_vocab)
 
     train_df = {
@@ -36,25 +36,20 @@ def prepare_dataset(config):
         }
     
     for (index, row) in tqdm(df.iterrows()):
-        # Read data from file
+        #path = os.path.join(config.output_dir, row["Filename"])
         with open(row["path"]) as file:
             data = file.readlines()
-        
-        # Tokenize the data using encoder tokenizer
-        X = encoder_tokenizer.tokenize(data)
-
-        n_splits = X.shape[0] // input_max_len
-        X = X[:n_splits*input_max_len]
-        x_chunks = np.split(X, n_splits)
+        data = np.array([i.split() for i in data], dtype=np.float32)
+        n_splits = data.shape[0] // config.chunk_size
+        data = data[:n_splits*config.chunk_size]
+        chunks = np.split(data, n_splits)
 
         sub_dir = os.path.join(config.output_dir, row["Filename"])
         os.makedirs(sub_dir, exist_ok=True)
 
-        # Save tokenized data chunks to files
-        for (index, x) in enumerate(x_chunks):
-            np.save(os.path.join(sub_dir, f"{index}.npy"), x)
+        for (index, chunk) in enumerate(chunks):
+            np.save(os.path.join(sub_dir, f"{index}.npy"), chunk)
 
-        # Update train_df with data information
         train_df["filename"].extend([row["Filename"]]*n_splits)
         train_df["data_num"].extend([i for i in range(n_splits)])
         train_df["number"].extend([row["Number"] for i in range(n_splits)])
@@ -100,6 +95,7 @@ class FeynmanDataset(Dataset):
             prefix_equations.append(np.trim_zeros(prefix))
 
         self.prefix_equations = prefix_equations
+        self.max_len = 11
 
     def __len__(self):
         return len(self.df)
@@ -116,16 +112,20 @@ class FeynmanDataset(Dataset):
         """
         row = self.df.iloc[idx]
         path = os.path.join(os.path.join(self.dataset_dir, row['filename']), f"{row['data_num']}.npy")
-        x = np.load(path).astype(np.int32)
+        x = np.load(path)
         N, n = x.shape
-        ones_column = np.ones((N, 1))
-        num_array = np.concatenate((x, ones_column), axis=1).flatten()
-        x = np.concatenate(np.ones((N, n))*NUM_IDX, np.ones((N, 1))*SEP_IDX, axis=1).flatten()
+        permutation = [-1] + [i for i in range(n-1)]
+        x = x[:, permutation]
+        padding = np.ones((N, self.max_len - n))
+
+        num_array = np.concatenate((x, padding), axis=1)
+        
+        x = np.concatenate([np.ones((N, n))*NUM_IDX, padding*PAD_IDX], axis=1)
 
         path = os.path.join(self.dataset_dir, f"{row['filename']}.npy")
         y = self.prefix_equations[row['number'] - 1]
 
-        return (torch.Tensor(x).long(), torch.Tensor(num_array).long(), torch.Tensor(y).long())
+        return (torch.Tensor(x).long(), torch.Tensor(num_array), torch.Tensor(y).long())
 
 def get_datasets(df, input_df, dataset_dir, split):
     """
@@ -142,6 +142,9 @@ def get_datasets(df, input_df, dataset_dir, split):
     - train_equations: List of equations used for training
     - test_equations: List of equations used for testing
     """
+    
+    assert sum(split) == 1.0, "split ratios should sum to 1"
+    
     train_df, test_df = train_test_split(df, test_size=split[2], shuffle=True, random_state=42)
     train_equations = train_df['Filename'].tolist()
     test_equations = test_df['Filename'].tolist()
@@ -149,14 +152,7 @@ def get_datasets(df, input_df, dataset_dir, split):
     input_test_df = input_df[input_df['filename'].isin(test_equations)]
     input_train_df = input_df[input_df['filename'].isin(train_equations)]
 
-#     input_train_df, input_test_df = train_test_split(input_df, test_size=split[2], shuffle=True, random_state=1)
     val_size = split[1]/(split[0] + split[1])
-#     train_df, val_df = train_test_split(train_df, test_size=val_size, shuffle=True, random_state=42)
-#     train_equations = train_df['Filename'].tolist()
-#     val_equations = val_df['Filename'].tolist()
-
-#     input_val_df = input_df[input_df['filename'].isin(val_equations)]
-#     input_train_df = input_df[input_df['filename'].isin(train_equations)]
 
     input_train_df, input_val_df = train_test_split(input_train_df, test_size=val_size, shuffle=True, random_state=42)
 
@@ -210,6 +206,6 @@ def collate_fn(batch):
     
 
     src_batch = pad_sequence(src_batch, padding_value=PAD_IDX, batch_first=True)
-    num_batch = pad_sequence(num_batch, padding_value=PAD_IDX, batch_first=True)
+    num_batch = pad_sequence(num_batch, padding_value=1, batch_first=True)
     tgt_batch = pad_sequence(tgt_batch, padding_value=PAD_IDX, batch_first=True)
-    return src_batch, tgt_batch
+    return src_batch, num_batch, tgt_batch
