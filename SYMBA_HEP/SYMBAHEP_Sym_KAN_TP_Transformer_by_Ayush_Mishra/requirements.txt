@@ -1,0 +1,9 @@
+datasets
+nltk
+numpy
+pandas
+python_Levenshtein
+sympy
+torch
+tqdm
+transformers
